@@ -66,7 +66,7 @@ export function LoginForm() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@stacksandgrounds.com"
+            placeholder="admin@bookverse.in"
             className="w-full rounded-lg border border-parchment-line bg-white/60 px-4 py-3 text-ink-text placeholder:text-ink-text/30 outline-none transition focus:border-brass focus:ring-2 focus:ring-brass/30"
           />
         </div>
