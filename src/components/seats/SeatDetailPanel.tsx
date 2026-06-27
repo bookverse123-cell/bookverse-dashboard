@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { X, Phone, Calendar, UserPlus, LogOut } from "lucide-react";
+import { X, Phone, Calendar, MessageCircle, UserPlus, LogOut } from "lucide-react";
 import type { SeatStatus, MembershipPlan } from "@/lib/demo-data";
 import { AssignSeatModal } from "./AssignSeatModal";
-import { endMembership } from "@/app/dashboard/seats/actions";
+import { endMembership, sendManualReminder } from "@/app/dashboard/seats/actions";
 
 function formatDate(d: string | null) {
   if (!d) return "—";
@@ -36,6 +36,13 @@ export function SeatDetailPanel({
     await endMembership(seat.membership_id);
     setBusy(false);
     onClose();
+  }
+
+  async function handleSendReminder() {
+    if (!seat.membership_id) return;
+    setBusy(true);
+    await sendManualReminder(seat.membership_id);
+    setBusy(false);
   }
 
   return (
@@ -131,7 +138,15 @@ export function SeatDetailPanel({
             )}
 
             <div className="space-y-3">
-              {/* WhatsApp reminder button — commented out, will enable after messaging setup */}
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                disabled={busy}
+                onClick={handleSendReminder}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-sage px-4 py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+              >
+                <MessageCircle size={16} />
+                Send WhatsApp reminder now
+              </motion.button>
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 disabled={busy}

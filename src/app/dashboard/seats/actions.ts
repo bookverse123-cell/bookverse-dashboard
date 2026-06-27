@@ -129,4 +129,16 @@ export async function endMembership(membershipId: string) {
   return { success: true };
 }
 
-// sendManualReminder — commented out, will enable after WhatsApp/Twilio setup
+export async function sendManualReminder(membershipId: string) {
+  if (!isSupabaseConfigured()) {
+    return { error: "Connect Supabase first — demo data is read-only." };
+  }
+  const supabase = await createClient();
+  const { data, error } = await supabase.functions.invoke(
+    "send-membership-reminders",
+    { body: { membershipId } }
+  );
+  if (error) return { error: error.message };
+  revalidatePath("/dashboard/seats");
+  return { success: true, data };
+}

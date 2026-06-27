@@ -122,7 +122,7 @@ export async function getFinanceMonthly() {
   const sortedKeys = Array.from(monthsMap.keys()).sort();
   const data = sortedKeys.map((k) => monthsMap.get(k)!);
 
-  return { data: data.length ? data : getDemoFinanceMonthly(), isDemo: data.length === 0 };
+  return { data, isDemo: false };
 }
 
 export async function getExpenseBreakdown() {
@@ -135,9 +135,10 @@ export async function getExpenseBreakdown() {
     .from("cafeteria_expenses")
     .select("category, amount");
 
-  if (error || !data || data.length === 0) {
+  if (error || !data) {
     return { data: getDemoExpenseBreakdown(), isDemo: true };
   }
+  if (data.length === 0) return { data: [], isDemo: false };
 
   const map = new Map<string, number>();
   for (const row of data) {

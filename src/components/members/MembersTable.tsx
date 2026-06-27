@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Search, Phone } from "lucide-react";
+import { Search, MessageCircle, Phone } from "lucide-react";
 import type { MembershipRow } from "@/lib/demo-data";
+import { sendManualReminder } from "@/app/dashboard/seats/actions";
 
 const FILTERS = ["All", "Active", "Renewal due", "Expired"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -24,6 +25,14 @@ function statusPill(row: MembershipRow) {
 export function MembersTable({ rows }: { rows: MembershipRow[] }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("All");
+  const [sendingId, setSendingId] = useState<string | null>(null);
+
+  async function handleRemind(membershipId: string) {
+    setSendingId(membershipId);
+    await sendManualReminder(membershipId);
+    setSendingId(null);
+  }
+
   const filtered = useMemo(() => {
     return rows.filter((row) => {
       const matchesQuery =
@@ -82,6 +91,7 @@ export function MembersTable({ rows }: { rows: MembershipRow[] }) {
               <th className="py-3 font-mono">Start</th>
               <th className="py-3 font-mono">End</th>
               <th className="py-3 font-mono">Status</th>
+              <th className="py-3 font-mono text-right">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -118,6 +128,16 @@ export function MembersTable({ rows }: { rows: MembershipRow[] }) {
                     <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${pill.className}`}>
                       {pill.label}
                     </span>
+                  </td>
+                  <td className="py-3 text-right">
+                    <button
+                      onClick={() => handleRemind(row.membership_id)}
+                      disabled={sendingId === row.membership_id}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-sage/30 px-2.5 py-1.5 text-xs font-medium text-sage transition hover:bg-sage/10 disabled:opacity-50"
+                    >
+                      <MessageCircle size={13} />
+                      {sendingId === row.membership_id ? "Sending…" : "Remind"}
+                    </button>
                   </td>
                 </motion.tr>
               );

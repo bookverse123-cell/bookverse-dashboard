@@ -144,6 +144,7 @@ export function FloorPlan({
   return (
     <div className="relative select-none">
       <div className="rounded-2xl border border-ink-line/10 bg-white/50 p-2 sm:p-6">
+        <Legend />
         <svg
           ref={svgRef}
           viewBox="0 0 100 96"
@@ -223,9 +224,6 @@ export function FloorPlan({
           />
         )}
       </AnimatePresence>
-
-      {/* ── Legend ───────────────────────────────────────────── */}
-      <Legend />
 
       {/* ── Detail panel ─────────────────────────────────────── */}
       <AnimatePresence>
@@ -562,22 +560,24 @@ function Legend() {
   const items = [
     { color: "#B4B2A9", label: "Empty" },
     { color: "#27AE60", label: "Occupied" },
-    { color: "#D4A857", label: "Expiring (≤ 3 days)" },
+    { color: "#D4A857", label: "Expiring ≤ 3 days" },
     { color: "#C0392B", label: "Overdue" },
   ];
   return (
-    <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 px-1">
-      {items.map((item) => (
-        <div key={item.label} className="flex items-center gap-2">
-          <span
-            className="h-2.5 w-2.5 rounded-sm"
-            style={{ backgroundColor: item.color }}
-          />
-          <span className="text-xs text-ink-text/55 font-mono tracking-wide">
-            {item.label}
-          </span>
-        </div>
-      ))}
+    <div className="mb-3 flex justify-end">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-xl bg-ink/5 px-4 py-2">
+        {items.map((item) => (
+          <div key={item.label} className="flex items-center gap-2">
+            <span
+              className="h-2 w-2 rounded-sm"
+              style={{ backgroundColor: item.color }}
+            />
+            <span className="font-mono text-[10px] uppercase tracking-widest text-ink-text/50">
+              {item.label}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
