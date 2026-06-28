@@ -19,6 +19,7 @@ function revalidateAll() {
   revalidatePath("/dashboard/seats");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/members");
+  revalidatePath("/dashboard/finance");
 }
 
 export async function assignSeat(input: AssignSeatInput) {

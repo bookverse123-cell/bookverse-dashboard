@@ -1,19 +1,16 @@
 import { MessageCircle, Database, ShieldCheck } from "lucide-react";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { PlansEditor } from "@/components/finance/PlansEditor";
-import { DemoBanner } from "@/components/dashboard/DemoBanner";
 import { getMembershipPlans, isSupabaseConfigured } from "@/lib/data";
 
 export default async function SettingsPage() {
-  const { data: plans, isDemo } = await getMembershipPlans();
+  const { data: plans } = await getMembershipPlans();
   const supabaseReady = isSupabaseConfigured();
 
   return (
     <>
       <Topbar title="Settings" subtitle="Pricing, integrations, and account" />
       <div className="space-y-6 px-6 py-6 lg:px-10">
-        {isDemo && <DemoBanner />}
-
         <PlansEditor plans={plans} />
 
         <div className="rounded-2xl border border-ink-line/10 bg-white/60 p-5 sm:p-6">
@@ -30,7 +27,7 @@ export default async function SettingsPage() {
               <div>
                 <p className="text-sm font-medium text-ink-text">Supabase</p>
                 <p className="text-xs text-ink-text/50">
-                  {supabaseReady ? "Connected — live data" : "Not connected — showing demo data"}
+                  {supabaseReady ? "Connected — live data" : "Not connected"}
                 </p>
               </div>
             </div>

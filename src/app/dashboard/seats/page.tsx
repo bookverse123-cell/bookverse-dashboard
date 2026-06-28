@@ -1,10 +1,9 @@
 import { Topbar } from "@/components/dashboard/Topbar";
 import { FloorPlan } from "@/components/seats/FloorPlan";
 import { getSeatStatuses, getMembershipPlans } from "@/lib/data";
-import { DemoBanner } from "@/components/dashboard/DemoBanner";
 
 export default async function SeatsPage() {
-  const [{ seats, isDemo }, { data: plans }] = await Promise.all([
+  const [{ seats }, { data: plans }] = await Promise.all([
     getSeatStatuses(),
     getMembershipPlans(),
   ]);
@@ -20,7 +19,6 @@ export default async function SeatsPage() {
         subtitle={`${libraryCount} reading hall seats · ${loungeCount} premium lounge seats · ${occupied} currently occupied`}
       />
       <div className="px-6 py-6 lg:px-10">
-        {isDemo && <DemoBanner />}
         <FloorPlan seats={seats} plans={plans} />
       </div>
     </>

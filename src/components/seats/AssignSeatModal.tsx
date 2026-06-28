@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { X, Loader2 } from "lucide-react";
-import type { SeatStatus, MembershipPlan } from "@/lib/demo-data";
+import type { SeatStatus, MembershipPlan } from "@/lib/types";
 import { assignSeat } from "@/app/dashboard/seats/actions";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);

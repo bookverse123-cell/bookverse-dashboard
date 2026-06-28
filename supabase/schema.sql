@@ -152,6 +152,21 @@ create table if not exists notifications_log (
   sent_at timestamptz not null default now()
 );
 
+-- ----------------------------------------------------------------------------
+-- DAILY PASSES
+-- Walk-in visitors who pay ₹200 for a single day (no seat assigned).
+-- ----------------------------------------------------------------------------
+create table if not exists daily_passes (
+  id uuid primary key default uuid_generate_v4(),
+  full_name text not null,
+  phone text not null,
+  date date not null default current_date,
+  amount numeric(10, 2) not null default 200,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_daily_passes_date on daily_passes(date);
+
 -- ============================================================================
 -- VIEWS
 -- ============================================================================
@@ -279,4 +294,9 @@ create policy "authenticated full access" on cafeteria_sales for all
 create policy "authenticated full access" on investments for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "authenticated full access" on notifications_log for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+alter table daily_passes enable row level security;
+
+create policy "authenticated full access" on daily_passes for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');

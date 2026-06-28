@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Check, Loader2 } from "lucide-react";
-import type { MembershipPlan } from "@/lib/demo-data";
+import type { MembershipPlan } from "@/lib/types";
 import { updatePlanPrice } from "@/app/dashboard/settings/actions";
 
 export function PlansEditor({ plans }: { plans: MembershipPlan[] }) {

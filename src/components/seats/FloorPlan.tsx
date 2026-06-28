@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { SeatStatus, MembershipPlan } from "@/lib/demo-data";
+import type { SeatStatus, MembershipPlan } from "@/lib/types";
 import { SeatDetailPanel } from "./SeatDetailPanel";
 
 // ─── constants ────────────────────────────────────────────────────────────────

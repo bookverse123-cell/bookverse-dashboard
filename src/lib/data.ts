@@ -1,20 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import {
-  getDemoSeatStatuses,
-  getDemoKPIs,
-  getDemoFinanceMonthly,
-  getDemoExpenseBreakdown,
-  getDemoRecentMembers,
-  getDemoMembershipPlans,
-  getDemoMemberships,
-  getDemoCafeteriaExpenses,
-  getDemoCafeteriaSales,
-  getDemoInvestments,
-  type SeatStatus,
-  type MembershipPlan,
-  type MembershipRow,
-  type LedgerRow,
-} from "@/lib/demo-data";
+import type { SeatStatus, MembershipPlan, MembershipRow, LedgerRow, DailyPassRow } from "@/lib/types";
 
 export function isSupabaseConfigured() {
   return (
@@ -24,33 +9,19 @@ export function isSupabaseConfigured() {
   );
 }
 
-export async function getSeatStatuses(): Promise<{
-  seats: SeatStatus[];
-  isDemo: boolean;
-}> {
-  if (!isSupabaseConfigured()) {
-    return { seats: getDemoSeatStatuses(), isDemo: true };
-  }
-
+export async function getSeatStatuses(): Promise<{ seats: SeatStatus[] }> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("seat_status")
     .select("*")
     .order("seat_code");
 
-  if (error || !data) {
-    return { seats: getDemoSeatStatuses(), isDemo: true };
-  }
-
-  return { seats: data as SeatStatus[], isDemo: false };
+  if (error || !data) return { seats: [] };
+  return { seats: data as SeatStatus[] };
 }
 
 export async function getKPIs() {
-  const { seats, isDemo } = await getSeatStatuses();
-
-  if (isDemo) {
-    return { ...getDemoKPIs(), isDemo };
-  }
+  const { seats } = await getSeatStatuses();
 
   const library = seats.filter((s) => s.zone === "library");
   const lounge = seats.filter((s) => s.zone === "lounge");
@@ -67,24 +38,28 @@ export async function getKPIs() {
     loungeOccupied: occupiedLounge,
     expiringSoon,
     activeMembers: seats.filter((s) => s.full_name).length,
-    isDemo,
   };
 }
 
 export async function getFinanceMonthly() {
-  if (!isSupabaseConfigured()) {
-    return { data: getDemoFinanceMonthly(), isDemo: true };
-  }
-
   const supabase = await createClient();
-  const [{ data: revenue }, { data: expenses }] = await Promise.all([
-    supabase.from("monthly_revenue").select("*"),
-    supabase.from("monthly_expenses").select("*"),
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const [
+    { data: memberships },
+    { data: cafeteriaSales },
+    { data: cafeteriaExpenses },
+    { data: investmentRows },
+    { data: dailyPassRows },
+  ] = await Promise.all([
+    supabase.from("memberships").select("start_date, amount_paid").lte("start_date", todayStr),
+    supabase.from("cafeteria_sales").select("sale_date, amount"),
+    supabase.from("cafeteria_expenses").select("expense_date, amount"),
+    supabase.from("investments").select("investment_date, amount"),
+    supabase.from("daily_passes").select("date, amount"),
   ]);
 
-  if (!revenue || !expenses) {
-    return { data: getDemoFinanceMonthly(), isDemo: true };
-  }
+  if (!memberships) return { data: [] };
 
   type Row = {
     month: string;
@@ -94,51 +69,70 @@ export async function getFinanceMonthly() {
     investment: number;
   };
 
-  const monthsMap = new Map<string, Row>();
+  const map = new Map<string, Row>();
 
-  const monthLabel = (d: string) =>
-    new Date(d).toLocaleDateString("en-US", { month: "short" });
-
-  for (const row of revenue) {
-    const key = row.month;
-    const entry =
-      monthsMap.get(key) ??
-      ({ month: monthLabel(key), membershipRevenue: 0, cafeteriaRevenue: 0, cafeteriaExpense: 0, investment: 0 } as Row);
-    if (row.source === "membership") entry.membershipRevenue += Number(row.total);
-    if (row.source === "cafeteria") entry.cafeteriaRevenue += Number(row.total);
-    monthsMap.set(key, entry);
+  function getEntry(dateStr: string): Row {
+    const key = dateStr.slice(0, 7);
+    if (!map.has(key)) {
+      map.set(key, {
+        month: new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { month: "short" }),
+        membershipRevenue: 0,
+        cafeteriaRevenue: 0,
+        cafeteriaExpense: 0,
+        investment: 0,
+      });
+    }
+    return map.get(key)!;
   }
 
-  for (const row of expenses) {
-    const key = row.month;
-    const entry =
-      monthsMap.get(key) ??
-      ({ month: monthLabel(key), membershipRevenue: 0, cafeteriaRevenue: 0, cafeteriaExpense: 0, investment: 0 } as Row);
-    if (row.source === "cafeteria") entry.cafeteriaExpense += Number(row.total);
-    if (row.source === "investment") entry.investment += Number(row.total);
-    monthsMap.set(key, entry);
+  for (const m of memberships) {
+    getEntry(m.start_date).membershipRevenue += Number(m.amount_paid);
+  }
+  for (const s of cafeteriaSales ?? []) {
+    getEntry(s.sale_date).cafeteriaRevenue += Number(s.amount);
+  }
+  for (const e of cafeteriaExpenses ?? []) {
+    getEntry(e.expense_date).cafeteriaExpense += Number(e.amount);
+  }
+  for (const inv of investmentRows ?? []) {
+    getEntry(inv.investment_date).investment += Number(inv.amount);
+  }
+  for (const p of dailyPassRows ?? []) {
+    getEntry(p.date).membershipRevenue += Number(p.amount);
   }
 
-  const sortedKeys = Array.from(monthsMap.keys()).sort();
-  const data = sortedKeys.map((k) => monthsMap.get(k)!);
+  const sortedKeys = Array.from(map.keys()).sort();
+  return { data: sortedKeys.map((k) => map.get(k)!) };
+}
 
-  return { data, isDemo: false };
+export async function getDailyPasses(): Promise<{ data: DailyPassRow[] }> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("daily_passes")
+    .select("id, full_name, phone, date, amount")
+    .order("date", { ascending: false })
+    .limit(200);
+
+  if (error || !data) return { data: [] };
+
+  return {
+    data: data.map((r) => ({
+      id: r.id,
+      full_name: r.full_name,
+      phone: r.phone,
+      date: r.date,
+      amount: Number(r.amount),
+    })),
+  };
 }
 
 export async function getExpenseBreakdown() {
-  if (!isSupabaseConfigured()) {
-    return { data: getDemoExpenseBreakdown(), isDemo: true };
-  }
-
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("cafeteria_expenses")
     .select("category, amount");
 
-  if (error || !data) {
-    return { data: getDemoExpenseBreakdown(), isDemo: true };
-  }
-  if (data.length === 0) return { data: [], isDemo: false };
+  if (error || !data || data.length === 0) return { data: [] };
 
   const map = new Map<string, number>();
   for (const row of data) {
@@ -147,14 +141,10 @@ export async function getExpenseBreakdown() {
 
   return {
     data: Array.from(map.entries()).map(([category, amount]) => ({ category, amount })),
-    isDemo: false,
   };
 }
 
-export async function getCafeteriaExpenses(): Promise<{ data: LedgerRow[]; isDemo: boolean }> {
-  if (!isSupabaseConfigured()) {
-    return { data: getDemoCafeteriaExpenses(), isDemo: true };
-  }
+export async function getCafeteriaExpenses(): Promise<{ data: LedgerRow[] }> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("cafeteria_expenses")
@@ -162,7 +152,7 @@ export async function getCafeteriaExpenses(): Promise<{ data: LedgerRow[]; isDem
     .order("expense_date", { ascending: false })
     .limit(50);
 
-  if (error || !data) return { data: getDemoCafeteriaExpenses(), isDemo: true };
+  if (error || !data) return { data: [] };
 
   return {
     data: data.map((r) => ({
@@ -172,14 +162,10 @@ export async function getCafeteriaExpenses(): Promise<{ data: LedgerRow[]; isDem
       amount: Number(r.amount),
       date: r.expense_date,
     })),
-    isDemo: false,
   };
 }
 
-export async function getCafeteriaSales(): Promise<{ data: LedgerRow[]; isDemo: boolean }> {
-  if (!isSupabaseConfigured()) {
-    return { data: getDemoCafeteriaSales(), isDemo: true };
-  }
+export async function getCafeteriaSales(): Promise<{ data: LedgerRow[] }> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("cafeteria_sales")
@@ -187,7 +173,7 @@ export async function getCafeteriaSales(): Promise<{ data: LedgerRow[]; isDemo: 
     .order("sale_date", { ascending: false })
     .limit(50);
 
-  if (error || !data) return { data: getDemoCafeteriaSales(), isDemo: true };
+  if (error || !data) return { data: [] };
 
   return {
     data: data.map((r) => ({
@@ -197,14 +183,10 @@ export async function getCafeteriaSales(): Promise<{ data: LedgerRow[]; isDemo: 
       amount: Number(r.amount),
       date: r.sale_date,
     })),
-    isDemo: false,
   };
 }
 
-export async function getInvestments(): Promise<{ data: LedgerRow[]; isDemo: boolean }> {
-  if (!isSupabaseConfigured()) {
-    return { data: getDemoInvestments(), isDemo: true };
-  }
+export async function getInvestments(): Promise<{ data: LedgerRow[] }> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("investments")
@@ -212,7 +194,7 @@ export async function getInvestments(): Promise<{ data: LedgerRow[]; isDemo: boo
     .order("investment_date", { ascending: false })
     .limit(50);
 
-  if (error || !data) return { data: getDemoInvestments(), isDemo: true };
+  if (error || !data) return { data: [] };
 
   return {
     data: data.map((r) => ({
@@ -222,18 +204,10 @@ export async function getInvestments(): Promise<{ data: LedgerRow[]; isDemo: boo
       amount: Number(r.amount),
       date: r.investment_date,
     })),
-    isDemo: false,
   };
 }
 
-export async function getMembershipPlans(): Promise<{
-  data: MembershipPlan[];
-  isDemo: boolean;
-}> {
-  if (!isSupabaseConfigured()) {
-    return { data: getDemoMembershipPlans(), isDemo: true };
-  }
-
+export async function getMembershipPlans(): Promise<{ data: MembershipPlan[] }> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("membership_plans")
@@ -242,11 +216,8 @@ export async function getMembershipPlans(): Promise<{
     .order("zone")
     .order("duration_months");
 
-  if (error || !data || data.length === 0) {
-    return { data: getDemoMembershipPlans(), isDemo: true };
-  }
-
-  return { data: data as MembershipPlan[], isDemo: false };
+  if (error || !data) return { data: [] };
+  return { data: data as MembershipPlan[] };
 }
 
 type MembershipJoinRow = {
@@ -260,14 +231,7 @@ type MembershipJoinRow = {
   membership_plans: { label: string } | null;
 };
 
-export async function getMemberships(): Promise<{
-  data: MembershipRow[];
-  isDemo: boolean;
-}> {
-  if (!isSupabaseConfigured()) {
-    return { data: getDemoMemberships(), isDemo: true };
-  }
-
+export async function getMemberships(): Promise<{ data: MembershipRow[] }> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("memberships")
@@ -276,9 +240,7 @@ export async function getMemberships(): Promise<{
     )
     .order("created_at", { ascending: false });
 
-  if (error || !data) {
-    return { data: getDemoMemberships(), isDemo: true };
-  }
+  if (error || !data) return { data: [] };
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -305,23 +267,17 @@ export async function getMemberships(): Promise<{
       };
     });
 
-  return { data: rows, isDemo: false };
+  return { data: rows };
 }
 
 export async function getExpiringMemberships() {
-  if (!isSupabaseConfigured()) {
-    return { data: getDemoRecentMembers(), isDemo: true };
-  }
-
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("expiring_memberships")
     .select("*")
     .order("days_left");
 
-  if (error || !data) {
-    return { data: getDemoRecentMembers(), isDemo: true };
-  }
+  if (error || !data) return { data: [] };
 
   return {
     data: data.map((row) => ({
@@ -334,6 +290,5 @@ export async function getExpiringMemberships() {
       end_date: row.end_date,
       days_until_expiry: row.days_left,
     })),
-    isDemo: false,
   };
 }

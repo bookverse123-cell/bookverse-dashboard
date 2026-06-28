@@ -4,7 +4,6 @@ import { KPICard } from "@/components/dashboard/KPICard";
 import { OccupancyDonut } from "@/components/dashboard/OccupancyDonut";
 import { RevenueChart } from "@/components/finance/RevenueChart";
 import { RenewalsList } from "@/components/dashboard/RenewalsList";
-import { DemoBanner } from "@/components/dashboard/DemoBanner";
 import { getKPIs, getFinanceMonthly, getExpiringMemberships } from "@/lib/data";
 
 export default async function DashboardOverviewPage() {
@@ -29,8 +28,6 @@ export default async function DashboardOverviewPage() {
     <>
       <Topbar title="Overview" subtitle="Today at a glance" />
       <div className="space-y-6 px-6 py-6 lg:px-10">
-        {kpis.isDemo && <DemoBanner />}
-
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <KPICard
             icon={<Armchair size={18} />}

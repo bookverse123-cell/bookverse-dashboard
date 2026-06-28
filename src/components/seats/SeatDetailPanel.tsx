@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { X, Phone, Calendar, MessageCircle, UserPlus, LogOut } from "lucide-react";
-import type { SeatStatus, MembershipPlan } from "@/lib/demo-data";
+import type { SeatStatus, MembershipPlan } from "@/lib/types";
 import { AssignSeatModal } from "./AssignSeatModal";
 import { endMembership, sendManualReminder } from "@/app/dashboard/seats/actions";
 

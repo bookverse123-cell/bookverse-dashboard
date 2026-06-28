@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Trash2, X, Loader2 } from "lucide-react";
-import type { LedgerRow } from "@/lib/demo-data";
+import type { LedgerRow } from "@/lib/types";
 import {
   addCafeteriaExpense,
   addCafeteriaSale,
