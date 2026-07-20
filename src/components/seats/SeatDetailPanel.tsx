@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { X, Phone, Calendar, MessageCircle, UserPlus, LogOut } from "lucide-react";
-import type { SeatStatus, MembershipPlan } from "@/lib/types";
+import type { SeatStatus } from "@/lib/types";
 import { AssignSeatModal } from "./AssignSeatModal";
 import { endMembership, sendManualReminder } from "@/app/dashboard/seats/actions";
 
@@ -18,11 +18,9 @@ function formatDate(d: string | null) {
 
 export function SeatDetailPanel({
   seat,
-  plans,
   onClose,
 }: {
   seat: SeatStatus;
-  plans: MembershipPlan[];
   onClose: () => void;
 }) {
   const [showAssign, setShowAssign] = useState(false);
@@ -178,7 +176,6 @@ export function SeatDetailPanel({
       {showAssign && (
         <AssignSeatModal
           seat={seat}
-          plans={plans}
           onClose={() => setShowAssign(false)}
           onAssigned={() => {
             setShowAssign(false);
