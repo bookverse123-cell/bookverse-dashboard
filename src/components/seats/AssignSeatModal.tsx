@@ -38,18 +38,21 @@ export function AssignSeatModal({
     setLoading(true);
     setError(null);
 
-    const res = await assignSeat({
-      seatId: seat.seat_id,
-      fullName,
-      phone,
-      email: email || undefined,
-      duration,
-      startDate,
-      amountPaid: amount,
-      paymentMethod,
-    });
-
-    setLoading(false);
+    let res;
+    try {
+      res = await assignSeat({
+        seatId: seat.seat_id,
+        fullName,
+        phone,
+        email: email || undefined,
+        duration,
+        startDate,
+        amountPaid: amount,
+        paymentMethod,
+      });
+    } finally {
+      setLoading(false);
+    }
 
     if (res?.error) {
       setError(res.error);
