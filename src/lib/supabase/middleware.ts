@@ -36,7 +36,21 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  // Race the real auth check against a timeout so middleware can never
+  // hang until Vercel's hard limit and 504. If Supabase is slow, we
+  // fall back to treating the request as unauthenticated.
+  const getUserWithTimeout = async (ms = 5000) => {
+    const timeout = new Promise<{ data: { user: null } }>((resolve) =>
+      setTimeout(() => resolve({ data: { user: null } }), ms)
+    );
+    try {
+      return await Promise.race([supabase.auth.getUser(), timeout]);
+    } catch {
+      return { data: { user: null } };
+    }
+  };
+
+  const { data: { user } } = await getUserWithTimeout();
 
   const path = request.nextUrl.pathname;
   const isAuthRoute = path.startsWith("/login");
