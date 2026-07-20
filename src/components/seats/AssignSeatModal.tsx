@@ -1,44 +1,37 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { X, Loader2 } from "lucide-react";
-import type { SeatStatus, MembershipPlan } from "@/lib/types";
+import type { SeatStatus } from "@/lib/types";
 import { assignSeat } from "@/app/dashboard/seats/actions";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
+const DURATION_OPTIONS = [
+  { value: 1, label: "1 Month" },
+  { value: 2, label: "2 Months" },
+  { value: 3, label: "3 Months" },
+] as const;
+
 export function AssignSeatModal({
   seat,
-  plans,
   onClose,
   onAssigned,
 }: {
   seat: SeatStatus;
-  plans: MembershipPlan[];
   onClose: () => void;
   onAssigned: () => void;
 }) {
-  const zonePlans = useMemo(
-    () => plans.filter((p) => p.zone === seat.zone),
-    [plans, seat.zone]
-  );
-
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("+91");
   const [email, setEmail] = useState("");
-  const [planId, setPlanId] = useState(zonePlans[0]?.id ?? "");
+  const [duration, setDuration] = useState<1 | 2 | 3>(1);
   const [startDate, setStartDate] = useState(todayStr());
   const [paymentMethod, setPaymentMethod] = useState("cash");
-  const [amount, setAmount] = useState(zonePlans[0]?.price ?? 0);
+  const [amount, setAmount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  function handlePlanChange(id: string) {
-    setPlanId(id);
-    const plan = zonePlans.find((p) => p.id === id);
-    if (plan) setAmount(plan.price);
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -50,7 +43,7 @@ export function AssignSeatModal({
       fullName,
       phone,
       email: email || undefined,
-      planId,
+      duration,
       startDate,
       amountPaid: amount,
       paymentMethod,
@@ -140,24 +133,23 @@ export function AssignSeatModal({
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
-              Plan
-            </label>
-            <select
-              value={planId}
-              onChange={(e) => handlePlanChange(e.target.value)}
-              className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
-            >
-              {zonePlans.map((plan) => (
-                <option key={plan.id} value={plan.id}>
-                  {plan.label} — ₹{plan.price.toLocaleString("en-IN")}
-                </option>
-              ))}
-            </select>
-          </div>
-
           <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
+                Duration
+              </label>
+              <select
+                value={duration}
+                onChange={(e) => setDuration(Number(e.target.value) as 1 | 2 | 3)}
+                className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
+              >
+                {DURATION_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div>
               <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
                 Start date
@@ -170,6 +162,9 @@ export function AssignSeatModal({
                 className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
                 Amount paid (₹)
@@ -183,23 +178,22 @@ export function AssignSeatModal({
                 className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
               />
             </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
-              Payment method
-            </label>
-            <select
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
-              className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
-            >
-              <option value="cash">Cash</option>
-              <option value="upi">UPI</option>
-              <option value="card">Card</option>
-              <option value="bank_transfer">Bank transfer</option>
-              <option value="other">Other</option>
-            </select>
+            <div>
+              <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
+                Payment method
+              </label>
+              <select
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
+              >
+                <option value="cash">Cash</option>
+                <option value="upi">UPI</option>
+                <option value="card">Card</option>
+                <option value="bank_transfer">Bank transfer</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
           </div>
 
           {error && (
@@ -210,7 +204,7 @@ export function AssignSeatModal({
 
           <motion.button
             type="submit"
-            disabled={loading || zonePlans.length === 0}
+            disabled={loading}
             whileTap={{ scale: 0.98 }}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-ink-text px-4 py-3 text-sm font-medium text-parchment transition hover:bg-ink disabled:opacity-50"
           >
