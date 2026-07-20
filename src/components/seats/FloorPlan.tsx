@@ -6,8 +6,9 @@ import type { SeatStatus } from "@/lib/types";
 import { SeatDetailPanel } from "./SeatDetailPanel";
 
 // ─── constants ────────────────────────────────────────────────────────────────
-const S  = 3.2;   // seat size
-const GAP = 4.8;  // seat stride (size + gap)
+const S = 3.2;        // seat size
+const GAP_X = 4.8;    // horizontal seat stride
+const GAP_Y = 5.8;    // vertical seat stride (extra space for seat numbers)
 
 // ─── color helpers ────────────────────────────────────────────────────────────
 function seatColor(seat: SeatStatus) {
@@ -50,22 +51,22 @@ function generateReadingHallPositions() {
       positions.push({
         col,
         row,
-        x: topStartX + col * GAP,
-        y: topStartY + row * GAP,
+        x: topStartX + col * GAP_X,
+        y: topStartY + row * GAP_Y,
       });
     }
   }
 
-  // Right bar: 20 cols × 3 rows = 60 seats (row-major: 3 horizontal rows stacked vertically)
- const rightStartX = 68;
+  // Right bar: 5 cols × 12 rows = 60 seats (reduces vertical overflow)
+  const rightStartX = 68;
   const rightStartY = 7;
-  for (let row = 0; row < 15; row++) {
-    for (let col = 0; col < 4; col++) {
+  for (let row = 0; row < 12; row++) {
+    for (let col = 0; col < 5; col++) {
       positions.push({
         col: 10 + col,
         row: 4 + row,
-        x: rightStartX + col * GAP,
-        y: rightStartY + row * GAP,
+        x: rightStartX + col * GAP_X,
+        y: rightStartY + row * GAP_Y,
       });
     }
   }
@@ -85,8 +86,8 @@ function generateLoungePositions() {
       positions.push({
         col,
         row,
-        x: startX + col * GAP,
-        y: startY + row * GAP,
+        x: startX + col * GAP_X,
+        y: startY + row * GAP_Y,
       });
     }
   }
@@ -253,6 +254,7 @@ function SeatMarker({
   onHover: (seat: SeatStatus | null, svgX?: number, svgY?: number) => void;
 }) {
   const { fill, glow } = seatColor(seat);
+  const seatNumber = seat.seat_code.replace(/\D+/g, "") || seat.seat_code;
   const pulse =
     seat.occupancy_status === "expired" ||
     (seat.days_until_expiry !== null &&
@@ -307,6 +309,17 @@ function SeatMarker({
           strokeDasharray="1 0.8"
         />
       )}
+      <text
+        x={x + S / 2}
+        y={y + S + 1.35}
+        textAnchor="middle"
+        fontSize="0.95"
+        fontFamily="var(--font-mono)"
+        fill="#5E6678"
+        pointerEvents="none"
+      >
+        {seatNumber}
+      </text>
     </motion.g>
   );
 }
