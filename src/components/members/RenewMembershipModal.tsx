@@ -37,15 +37,18 @@ export function RenewMembershipModal({
     setLoading(true);
     setError(null);
 
-    const res = await renewMembership({
-      membershipId: membership.membership_id,
-      amount,
-      duration,
-      startFrom,
-      paymentMethod,
-    });
-
-    setLoading(false);
+    let res;
+    try {
+      res = await renewMembership({
+        membershipId: membership.membership_id,
+        amount,
+        duration,
+        startFrom,
+        paymentMethod,
+      });
+    } finally {
+      setLoading(false);
+    }
 
     if (res?.error) {
       setError(res.error);
