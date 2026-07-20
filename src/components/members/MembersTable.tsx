@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, MessageCircle, Phone, Ticket, Trash2 } from "lucide-react";
+import { Search, MessageCircle, Phone, Ticket, Trash2, RefreshCw } from "lucide-react";
 import type { MembershipRow, DailyPassRow } from "@/lib/types";
 import { sendManualReminder } from "@/app/dashboard/seats/actions";
 import { deleteDailyPass } from "@/app/dashboard/members/actions";
 import { AddDailyPassModal } from "@/components/members/AddDailyPassModal";
+import { RenewMembershipModal } from "@/components/members/RenewMembershipModal";
 
 const FILTERS = ["All", "Active", "Renewal due", "Expired", "Daily Pass"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -40,6 +41,7 @@ export function MembersTable({
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [renewTarget, setRenewTarget] = useState<MembershipRow | null>(null);
 
   async function handleDeletePass(id: string) {
     setDeletingId(id);
@@ -132,7 +134,7 @@ export function MembersTable({
               <tr className="border-b border-parchment-line text-xs uppercase tracking-wider text-ink-text/40">
                 <th className="py-3 font-mono">Member</th>
                 <th className="py-3 font-mono">Seat</th>
-                <th className="py-3 font-mono">Plan</th>
+                <th className="py-3 font-mono">Duration</th>
                 <th className="py-3 font-mono">Start</th>
                 <th className="py-3 font-mono">End</th>
                 <th className="py-3 font-mono">Status</th>
@@ -211,7 +213,9 @@ export function MembersTable({
                         {row_.seat_code}
                       </span>
                     </td>
-                    <td className="py-3 text-ink-text/70">{row_.plan_label}</td>
+                    <td className="py-3 text-ink-text/70">
+                      {row_.duration_months === 1 ? "1 Month" : `${row_.duration_months} Months`}
+                    </td>
                     <td className="py-3 text-ink-text/70">
                       {new Date(row_.start_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
                     </td>
@@ -224,14 +228,23 @@ export function MembersTable({
                       </span>
                     </td>
                     <td className="py-3 text-right">
-                      <button
-                        onClick={() => handleRemind(row_.membership_id)}
-                        disabled={sendingId === row_.membership_id}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-sage/30 px-2.5 py-1.5 text-xs font-medium text-sage transition hover:bg-sage/10 disabled:opacity-50"
-                      >
-                        <MessageCircle size={13} />
-                        {sendingId === row_.membership_id ? "Sending…" : "Remind"}
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => setRenewTarget(row_)}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-brass/30 px-2.5 py-1.5 text-xs font-medium text-brass-soft transition hover:bg-brass/10"
+                        >
+                          <RefreshCw size={13} />
+                          Renew
+                        </button>
+                        <button
+                          onClick={() => handleRemind(row_.membership_id)}
+                          disabled={sendingId === row_.membership_id}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-sage/30 px-2.5 py-1.5 text-xs font-medium text-sage transition hover:bg-sage/10 disabled:opacity-50"
+                        >
+                          <MessageCircle size={13} />
+                          {sendingId === row_.membership_id ? "Sending…" : "Remind"}
+                        </button>
+                      </div>
                     </td>
                   </motion.tr>
                 );
@@ -249,6 +262,13 @@ export function MembersTable({
           <AddDailyPassModal
             onClose={() => setShowModal(false)}
             onAdded={() => setShowModal(false)}
+          />
+        )}
+        {renewTarget && (
+          <RenewMembershipModal
+            membership={renewTarget}
+            onClose={() => setRenewTarget(null)}
+            onRenewed={() => setRenewTarget(null)}
           />
         )}
       </AnimatePresence>
