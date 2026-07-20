@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { SeatStatus, MembershipPlan } from "@/lib/types";
+import type { SeatStatus } from "@/lib/types";
 import { SeatDetailPanel } from "./SeatDetailPanel";
 
 // ─── constants ────────────────────────────────────────────────────────────────
@@ -106,10 +106,8 @@ interface TooltipState {
 // ─── main component ────────────────────────────────────────────────────────────
 export function FloorPlan({
   seats,
-  plans,
 }: {
   seats: SeatStatus[];
-  plans: MembershipPlan[];
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tooltip, setTooltip]       = useState<TooltipState | null>(null);
@@ -230,7 +228,6 @@ export function FloorPlan({
         {selectedSeat && (
           <SeatDetailPanel
             seat={selectedSeat}
-            plans={plans}
             onClose={() => setSelectedId(null)}
           />
         )}
