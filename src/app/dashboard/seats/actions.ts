@@ -153,6 +153,7 @@ export async function renewMembership(input: RenewInput) {
   const { error: updateError } = await supabase
     .from("memberships")
     .update({
+      start_date: newStart,
       end_date: newEnd,
       amount_paid: input.amount,
       status: "active",
