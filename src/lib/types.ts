@@ -28,7 +28,7 @@ export type MembershipRow = {
   email: string | null;
   seat_code: string;
   zone: Zone;
-  plan_label: string;
+  duration_months: number;
   amount_paid: number;
   start_date: string;
   end_date: string;
@@ -50,12 +50,4 @@ export type DailyPassRow = {
   phone: string;
   date: string;
   amount: number;
-};
-
-export type MembershipPlan = {
-  id: string;
-  zone: Zone;
-  duration_months: 1 | 3 | 6;
-  price: number;
-  label: string;
 };

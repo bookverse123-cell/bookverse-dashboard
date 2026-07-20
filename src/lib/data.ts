@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { SeatStatus, MembershipPlan, MembershipRow, LedgerRow, DailyPassRow } from "@/lib/types";
+import type { SeatStatus, MembershipRow, LedgerRow, DailyPassRow } from "@/lib/types";
 
 export function isSupabaseConfigured() {
   return (
@@ -207,19 +207,6 @@ export async function getInvestments(): Promise<{ data: LedgerRow[] }> {
   };
 }
 
-export async function getMembershipPlans(): Promise<{ data: MembershipPlan[] }> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("membership_plans")
-    .select("*")
-    .eq("is_active", true)
-    .order("zone")
-    .order("duration_months");
-
-  if (error || !data) return { data: [] };
-  return { data: data as MembershipPlan[] };
-}
-
 type MembershipJoinRow = {
   id: string;
   start_date: string;
@@ -228,7 +215,6 @@ type MembershipJoinRow = {
   amount_paid: number;
   members: { id: string; full_name: string; phone: string; email: string | null } | null;
   seats: { seat_code: string; zone: "library" | "lounge" } | null;
-  membership_plans: { label: string } | null;
 };
 
 export async function getMemberships(): Promise<{ data: MembershipRow[] }> {
@@ -236,7 +222,7 @@ export async function getMemberships(): Promise<{ data: MembershipRow[] }> {
   const { data, error } = await supabase
     .from("memberships")
     .select(
-      "id, start_date, end_date, status, amount_paid, members(id, full_name, phone, email), seats(seat_code, zone), membership_plans(label)"
+      "id, start_date, end_date, status, amount_paid, members(id, full_name, phone, email), seats(seat_code, zone)"
     )
     .order("created_at", { ascending: false });
 
@@ -248,8 +234,12 @@ export async function getMemberships(): Promise<{ data: MembershipRow[] }> {
   const rows: MembershipRow[] = (data as unknown as MembershipJoinRow[])
     .filter((row) => row.members && row.seats)
     .map((row) => {
+      const start = new Date(row.start_date);
       const end = new Date(row.end_date);
       const days = Math.round((end.getTime() - today.getTime()) / 86400000);
+      const duration_months =
+        (end.getFullYear() - start.getFullYear()) * 12 +
+        (end.getMonth() - start.getMonth());
       return {
         membership_id: row.id,
         member_id: row.members!.id,
@@ -258,7 +248,7 @@ export async function getMemberships(): Promise<{ data: MembershipRow[] }> {
         email: row.members!.email,
         seat_code: row.seats!.seat_code,
         zone: row.seats!.zone,
-        plan_label: row.membership_plans?.label ?? "—",
+        duration_months,
         amount_paid: Number(row.amount_paid),
         start_date: row.start_date,
         end_date: row.end_date,
