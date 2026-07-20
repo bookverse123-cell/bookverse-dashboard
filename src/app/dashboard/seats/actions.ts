@@ -58,10 +58,11 @@ export async function assignSeat(input: AssignSeatInput) {
     memberId = newMember.id;
   }
 
-  const start = new Date(input.startDate);
-  const end = new Date(start);
-  end.setMonth(end.getMonth() + input.duration);
-  const endDate = end.toISOString().slice(0, 10);
+  const [sy, sm, sd] = input.startDate.split("-").map(Number);
+  const targetMonth = sm - 1 + input.duration; // 0-indexed months
+  const lastDayOfTarget = new Date(Date.UTC(sy, targetMonth + 1, 0)).getUTCDate();
+  const clampedDay = Math.min(sd, lastDayOfTarget);
+  const endDate = new Date(Date.UTC(sy, targetMonth, clampedDay)).toISOString().slice(0, 10);
 
   const { data: membership, error: membershipError } = await supabase
     .from("memberships")
@@ -84,12 +85,13 @@ export async function assignSeat(input: AssignSeatInput) {
     };
   }
 
-  await supabase.from("payments").insert({
+  const { error: paymentError } = await supabase.from("payments").insert({
     membership_id: membership.id,
     amount: input.amountPaid,
     payment_date: input.startDate,
     method: input.paymentMethod,
   });
+  if (paymentError) return { error: paymentError.message };
 
   revalidateAll();
   return { success: true };
@@ -142,10 +144,11 @@ export async function renewMembership(input: RenewInput) {
 
   const today = new Date().toISOString().slice(0, 10);
   const newStart = input.startFrom === "today" ? today : current.end_date;
-  const startDate = new Date(newStart);
-  const endDate = new Date(startDate);
-  endDate.setMonth(endDate.getMonth() + input.duration);
-  const newEnd = endDate.toISOString().slice(0, 10);
+  const [ry, rm, rd] = newStart.split("-").map(Number);
+  const rTargetMonth = rm - 1 + input.duration;
+  const rLastDay = new Date(Date.UTC(ry, rTargetMonth + 1, 0)).getUTCDate();
+  const rClampedDay = Math.min(rd, rLastDay);
+  const newEnd = new Date(Date.UTC(ry, rTargetMonth, rClampedDay)).toISOString().slice(0, 10);
 
   const { error: updateError } = await supabase
     .from("memberships")
@@ -158,12 +161,13 @@ export async function renewMembership(input: RenewInput) {
 
   if (updateError) return { error: updateError.message };
 
-  await supabase.from("payments").insert({
+  const { error: paymentError } = await supabase.from("payments").insert({
     membership_id: input.membershipId,
     amount: input.amount,
     payment_date: today,
     method: input.paymentMethod,
   });
+  if (paymentError) return { error: paymentError.message };
 
   revalidateAll();
   return { success: true };
