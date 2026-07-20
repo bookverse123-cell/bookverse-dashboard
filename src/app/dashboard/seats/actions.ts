@@ -9,7 +9,7 @@ export type AssignSeatInput = {
   fullName: string;
   phone: string;
   email?: string;
-  planId: string;
+  duration: 1 | 2 | 3;
   startDate: string;
   amountPaid: number;
   paymentMethod: string;
@@ -25,14 +25,13 @@ function revalidateAll() {
 export async function assignSeat(input: AssignSeatInput) {
   if (!isSupabaseConfigured()) {
     return {
-      error:
-        "Connect Supabase first (see README) — demo data is read-only.",
+      error: "Connect Supabase first (see README) — demo data is read-only.",
     };
   }
 
   const supabase = await createClient();
 
-  // 1. find or create the member by phone number
+  // find or create member by phone
   let memberId: string;
   const { data: existingMember } = await supabase
     .from("members")
@@ -59,29 +58,16 @@ export async function assignSeat(input: AssignSeatInput) {
     memberId = newMember.id;
   }
 
-  // 2. look up the plan to compute the membership end date
-  const { data: plan, error: planError } = await supabase
-    .from("membership_plans")
-    .select("duration_months")
-    .eq("id", input.planId)
-    .single();
-
-  if (planError || !plan) {
-    return { error: "Selected plan was not found" };
-  }
-
   const start = new Date(input.startDate);
   const end = new Date(start);
-  end.setMonth(end.getMonth() + plan.duration_months);
+  end.setMonth(end.getMonth() + input.duration);
   const endDate = end.toISOString().slice(0, 10);
 
-  // 3. create the membership
   const { data: membership, error: membershipError } = await supabase
     .from("memberships")
     .insert({
       member_id: memberId,
       seat_id: input.seatId,
-      plan_id: input.planId,
       start_date: input.startDate,
       end_date: endDate,
       amount_paid: input.amountPaid,
@@ -98,7 +84,6 @@ export async function assignSeat(input: AssignSeatInput) {
     };
   }
 
-  // 4. record the payment
   await supabase.from("payments").insert({
     membership_id: membership.id,
     amount: input.amountPaid,
@@ -125,6 +110,60 @@ export async function endMembership(membershipId: string) {
     .eq("id", membershipId);
 
   if (error) return { error: error.message };
+
+  revalidateAll();
+  return { success: true };
+}
+
+export type RenewInput = {
+  membershipId: string;
+  amount: number;
+  duration: 1 | 2 | 3;
+  startFrom: "today" | "end_date";
+  paymentMethod: string;
+};
+
+export async function renewMembership(input: RenewInput) {
+  if (!isSupabaseConfigured()) {
+    return { error: "Connect Supabase first — demo data is read-only." };
+  }
+
+  const supabase = await createClient();
+
+  const { data: current, error: fetchError } = await supabase
+    .from("memberships")
+    .select("end_date")
+    .eq("id", input.membershipId)
+    .single();
+
+  if (fetchError || !current) {
+    return { error: "Membership not found" };
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const newStart = input.startFrom === "today" ? today : current.end_date;
+  const startDate = new Date(newStart);
+  const endDate = new Date(startDate);
+  endDate.setMonth(endDate.getMonth() + input.duration);
+  const newEnd = endDate.toISOString().slice(0, 10);
+
+  const { error: updateError } = await supabase
+    .from("memberships")
+    .update({
+      end_date: newEnd,
+      amount_paid: input.amount,
+      status: "active",
+    })
+    .eq("id", input.membershipId);
+
+  if (updateError) return { error: updateError.message };
+
+  await supabase.from("payments").insert({
+    membership_id: input.membershipId,
+    amount: input.amount,
+    payment_date: today,
+    method: input.paymentMethod,
+  });
 
   revalidateAll();
   return { success: true };
