@@ -197,7 +197,7 @@ export async function getExpenditures(): Promise<{ data: LedgerRow[] }> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("investments")
-    .select("id, title, category, amount, investment_date")
+    .select("id, title, category, amount, investment_date, payment_method, cash_amount, upi_amount")
     .order("investment_date", { ascending: false })
     .limit(50);
 
@@ -210,6 +210,12 @@ export async function getExpenditures(): Promise<{ data: LedgerRow[] }> {
       category: r.category,
       amount: Number(r.amount),
       date: r.investment_date,
+      payment_method:
+        r.payment_method === "cash" || r.payment_method === "upi" || r.payment_method === "cash_upi"
+          ? r.payment_method
+          : undefined,
+      cash_amount: r.cash_amount !== null ? Number(r.cash_amount) : null,
+      upi_amount: r.upi_amount !== null ? Number(r.upi_amount) : null,
     })),
   };
 }

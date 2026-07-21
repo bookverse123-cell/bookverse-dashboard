@@ -141,6 +141,14 @@ create table if not exists investments (
   title text not null,
   category text not null default 'general',
   amount numeric(10, 2) not null,
+  payment_method text not null default 'cash' check (payment_method in ('cash', 'upi', 'cash_upi')),
+  cash_amount numeric(10, 2),
+  upi_amount numeric(10, 2),
+  check (
+    (payment_method = 'cash_upi' and cash_amount is not null and upi_amount is not null and cash_amount > 0 and upi_amount > 0 and (cash_amount + upi_amount = amount))
+    or
+    (payment_method <> 'cash_upi' and cash_amount is null and upi_amount is null)
+  ),
   investment_date date not null default current_date,
   notes text,
   created_at timestamptz not null default now()

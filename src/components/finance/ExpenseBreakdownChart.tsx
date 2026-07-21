@@ -3,9 +3,17 @@
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell } from "recharts";
 import { motion } from "framer-motion";
 
-const COLORS = ["#C56B52", "#D4A857", "#7FA37A", "#283A5C", "#A8432F", "#8C96AC"];
+const CAFE_COLOR = "#C56B52";
+const EXPENDITURE_COLOR = "#DC2626";
+
+function getColor(category: string) {
+  if (category.startsWith("Expenditure ·")) return EXPENDITURE_COLOR;
+  return CAFE_COLOR;
+}
 
 export function ExpenseBreakdownChart({ data }: { data: { category: string; amount: number }[] }) {
+  const chartData = [...data].sort((a, b) => b.amount - a.amount);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -17,7 +25,7 @@ export function ExpenseBreakdownChart({ data }: { data: { category: string; amou
       <p className="mb-4 text-sm text-ink-text/50">Where café costs and expenditures are going</p>
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} layout="vertical" margin={{ left: 16, right: 16 }}>
+          <BarChart data={chartData} layout="vertical" margin={{ left: 16, right: 16 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#28365C" strokeOpacity={0.08} horizontal={false} />
             <XAxis type="number" tick={{ fontSize: 12, fill: "#8C96AC" }} axisLine={false} tickLine={false} tickFormatter={(v) => `₹${Math.round(v / 1000)}k`} />
             <YAxis type="category" dataKey="category" tick={{ fontSize: 12, fill: "#8C96AC" }} axisLine={false} tickLine={false} width={140} />
@@ -26,8 +34,8 @@ export function ExpenseBreakdownChart({ data }: { data: { category: string; amou
               formatter={(value) => `₹${Number(value ?? 0).toLocaleString("en-IN")}`}
             />
             <Bar dataKey="amount" radius={[0, 6, 6, 0]} barSize={18}>
-              {data.map((_, i) => (
-                <Cell key={i} fill={COLORS[i % COLORS.length]} />
+              {chartData.map((entry) => (
+                <Cell key={entry.category} fill={getColor(entry.category)} />
               ))}
             </Bar>
           </BarChart>

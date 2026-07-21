@@ -74,6 +74,9 @@ export type LedgerRow = {
   category: string;
   amount: number;
   date: string;
+  payment_method?: "cash" | "upi" | "cash_upi";
+  cash_amount?: number | null;
+  upi_amount?: number | null;
 };
 
 export type DailyPassRow = {

@@ -13,6 +13,7 @@ import {
 } from "@/app/dashboard/finance/actions";
 
 type Kind = "expense" | "sale" | "expenditure";
+type ExpenditurePaymentMethod = "cash" | "upi" | "cash_upi";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -48,8 +49,12 @@ export function LedgerTable({
   const [showForm, setShowForm] = useState(false);
   const [desc, setDesc] = useState("");
   const [category, setCategory] = useState(categories?.[0] ?? "");
+  const [customCategory, setCustomCategory] = useState("");
   const [amount, setAmount] = useState<number | "">("");
   const [date, setDate] = useState(todayStr());
+  const [paymentMethod, setPaymentMethod] = useState<ExpenditurePaymentMethod>("cash");
+  const [cashAmount, setCashAmount] = useState<number | "">("");
+  const [upiAmount, setUpiAmount] = useState<number | "">("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -59,14 +64,44 @@ export function LedgerTable({
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     if (amount === "" || !desc.trim()) return;
+
+    const isCustomCategory = kind === "expenditure" && category === "__custom__";
+    const finalCategory = categories
+      ? (isCustomCategory ? customCategory.trim() : category)
+      : "General";
+
+    if (categories && !finalCategory) {
+      setError("Enter a category name");
+      return;
+    }
+
+    if (kind === "expenditure" && paymentMethod === "cash_upi") {
+      const cash = Number(cashAmount ?? 0);
+      const upi = Number(upiAmount ?? 0);
+
+      if (!Number.isFinite(cash) || !Number.isFinite(upi) || cash <= 0 || upi <= 0) {
+        setError("Enter valid split amounts for cash and UPI");
+        return;
+      }
+
+      const total = Number((cash + upi).toFixed(2));
+      if (total !== Number(amount)) {
+        setError("Cash + UPI split must match the total amount");
+        return;
+      }
+    }
+
     setLoading(true);
     setError(null);
 
     const res = await ACTIONS[kind]({
       description: desc,
-      category: category || "General",
+      category: finalCategory || "General",
       amount: Number(amount),
       date,
+      paymentMethod: kind === "expenditure" ? paymentMethod : undefined,
+      cashAmount: kind === "expenditure" && paymentMethod === "cash_upi" ? Number(cashAmount) : undefined,
+      upiAmount: kind === "expenditure" && paymentMethod === "cash_upi" ? Number(upiAmount) : undefined,
     });
 
     setLoading(false);
@@ -78,7 +113,21 @@ export function LedgerTable({
 
     setDesc("");
     setAmount("");
+    setCustomCategory("");
+    setPaymentMethod("cash");
+    setCashAmount("");
+    setUpiAmount("");
     setShowForm(false);
+  }
+
+  function paymentMethodLabel(row: LedgerRow) {
+    if (!row.payment_method) return "";
+    if (row.payment_method === "cash_upi") {
+      const cash = row.cash_amount ?? 0;
+      const upi = row.upi_amount ?? 0;
+      return `Cash + UPI (₹${cash.toLocaleString("en-IN")} + ₹${upi.toLocaleString("en-IN")})`;
+    }
+    return row.payment_method === "upi" ? "UPI" : "Cash";
   }
 
   async function handleDelete(id: string) {
@@ -128,7 +177,17 @@ export function LedgerTable({
                   {categories.map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
+                  {kind === "expenditure" && <option value="__custom__">Custom</option>}
                 </select>
+              )}
+              {kind === "expenditure" && category === "__custom__" && (
+                <input
+                  required
+                  value={customCategory}
+                  onChange={(e) => setCustomCategory(e.target.value)}
+                  placeholder="Custom category (e.g. Printer Repair)"
+                  className="rounded-lg border border-parchment-line bg-white px-3 py-2 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
+                />
               )}
               <input
                 type="number"
@@ -146,6 +205,41 @@ export function LedgerTable({
                 onChange={(e) => setDate(e.target.value)}
                 className="rounded-lg border border-parchment-line bg-white px-3 py-2 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
               />
+              {kind === "expenditure" && (
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value as ExpenditurePaymentMethod)}
+                  className="rounded-lg border border-parchment-line bg-white px-3 py-2 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
+                >
+                  <option value="cash">Cash</option>
+                  <option value="upi">UPI</option>
+                  <option value="cash_upi">Cash + UPI (split)</option>
+                </select>
+              )}
+              {kind === "expenditure" && paymentMethod === "cash_upi" && (
+                <>
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    step="0.01"
+                    value={cashAmount}
+                    onChange={(e) => setCashAmount(e.target.value === "" ? "" : Number(e.target.value))}
+                    placeholder="Cash amount (₹)"
+                    className="rounded-lg border border-parchment-line bg-white px-3 py-2 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
+                  />
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    step="0.01"
+                    value={upiAmount}
+                    onChange={(e) => setUpiAmount(e.target.value === "" ? "" : Number(e.target.value))}
+                    placeholder="UPI amount (₹)"
+                    className="rounded-lg border border-parchment-line bg-white px-3 py-2 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
+                  />
+                </>
+              )}
               {error && (
                 <p className="sm:col-span-2 rounded-lg border border-terracotta/20 bg-terracotta/10 px-3 py-2 text-sm text-terracotta">
                   {error}
@@ -192,7 +286,10 @@ export function LedgerTable({
                 <td className="py-2.5 pr-2">
                   <p className="text-ink-text">{row.description}</p>
                   <p className="text-xs text-ink-text/40">
-                    {row.category} · {new Date(row.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                    {row.category}
+                    {kind === "expenditure" && row.payment_method && ` · ${paymentMethodLabel(row)}`}
+                    {" · "}
+                    {new Date(row.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
                   </p>
                 </td>
                 <td className={`py-2.5 text-right font-mono ${amountClassName}`}>

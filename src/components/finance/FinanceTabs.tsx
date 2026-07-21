@@ -14,7 +14,7 @@ const EXPENSE_CATEGORIES = [
   "Groceries & Snacks", "Utilities", "Maintenance", "Staff Wages", "Marketing", "Other",
 ];
 const EXPENDITURE_CATEGORIES = [
-  "Furniture", "Equipment", "Renovation", "Branding", "Technology", "Other",
+  "Rent", "Furniture", "Equipment", "Renovation", "Branding", "Technology",
 ];
 
 type MonthRow = {
