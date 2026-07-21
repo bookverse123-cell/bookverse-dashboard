@@ -19,6 +19,7 @@ type MonthRow = {
   monthKey?: string;
   month: string;
   membershipRevenue: number;
+  lockerRevenue: number;
   cafeteriaRevenue: number;
   cafeteriaExpense: number;
   expenditure: number;
@@ -58,10 +59,11 @@ export function RevenueChart({ data, expenditures = [] }: { data: MonthRow[]; ex
 
     return {
       month: d.month,
-      Revenue: d.membershipRevenue + d.cafeteriaRevenue,
+      Revenue: d.membershipRevenue + (d.lockerRevenue ?? 0) + d.cafeteriaRevenue,
       Expenditures: filteredExpenditure,
       CafeProfit: d.cafeteriaRevenue - d.cafeteriaExpense,
-      Profit: d.membershipRevenue + d.cafeteriaRevenue - d.cafeteriaExpense - filteredExpenditure,
+      Profit:
+        d.membershipRevenue + (d.lockerRevenue ?? 0) + d.cafeteriaRevenue - d.cafeteriaExpense - filteredExpenditure,
     };
   });
 

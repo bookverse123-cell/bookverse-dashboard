@@ -20,7 +20,7 @@ export default async function FinancePage() {
   ]);
 
   const totalRevenue = monthly.data.reduce(
-    (sum, m) => sum + m.membershipRevenue + m.cafeteriaRevenue,
+    (sum, m) => sum + m.membershipRevenue + m.cafeteriaRevenue + (m.lockerRevenue ?? 0),
     0
   );
   const totalExpenses = monthly.data.reduce((sum, m) => sum + m.cafeteriaExpense, 0);

@@ -16,10 +16,11 @@ export default async function DashboardOverviewPage() {
 
   const latestMonth = finance.data[finance.data.length - 1];
   const monthlyRevenue = latestMonth
-    ? latestMonth.membershipRevenue + latestMonth.cafeteriaRevenue
+    ? latestMonth.membershipRevenue + latestMonth.cafeteriaRevenue + (latestMonth.lockerRevenue ?? 0)
     : 0;
   const monthlyProfit = latestMonth
     ? latestMonth.membershipRevenue +
+      (latestMonth.lockerRevenue ?? 0) +
       latestMonth.cafeteriaRevenue -
       latestMonth.cafeteriaExpense -
       latestMonth.expenditure

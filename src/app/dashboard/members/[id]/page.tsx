@@ -5,6 +5,7 @@ import { getMemberDetail } from "@/lib/data";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { MemberTimeline } from "@/components/members/MemberTimeline";
 import { MemberBatchEditor } from "@/components/members/MemberBatchEditor";
+import { MemberDetailActions } from "@/components/members/MemberDetailActions";
 
 export default async function MemberDetailPage({
   params,
@@ -46,13 +47,23 @@ export default async function MemberDetailPage({
       <div className="space-y-6 px-6 py-6 lg:px-10">
 
         {/* Back link */}
-        <Link
-          href="/dashboard/members"
-          className="inline-flex items-center gap-1.5 text-sm text-ink-text/50 transition hover:text-ink-text"
-        >
-          <ChevronLeft size={16} />
-          Members
-        </Link>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Link
+            href="/dashboard/members"
+            className="inline-flex items-center gap-1.5 text-sm text-ink-text/50 transition hover:text-ink-text"
+          >
+            <ChevronLeft size={16} />
+            Members
+          </Link>
+          <MemberDetailActions
+            member={{
+              member_id: detail.member_id,
+              full_name: detail.full_name,
+              phone: detail.phone,
+              email: detail.email,
+            }}
+          />
+        </div>
 
         {/* Member header */}
         <div className="rounded-2xl border border-parchment-line bg-white/60 p-6">

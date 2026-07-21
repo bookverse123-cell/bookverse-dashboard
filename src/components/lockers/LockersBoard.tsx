@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { LockKeyhole, Unlock, X, Loader2 } from "lucide-react";
+import { LockKeyhole, Unlock, X, Loader2, Pencil } from "lucide-react";
 import type { LockerStatus } from "@/lib/types";
-import { allocateLocker, releaseLocker } from "@/app/dashboard/lockers/actions";
+import { allocateLocker, releaseLocker, updateLockerAllocation } from "@/app/dashboard/lockers/actions";
 
 type MemberOption = {
   member_id: string;
@@ -21,7 +21,9 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
   const [memberQuery, setMemberQuery] = useState("");
   const [showMemberOptions, setShowMemberOptions] = useState(false);
   const [assignedAt, setAssignedAt] = useState(todayStr());
+  const [price, setPrice] = useState<number | "">("");
   const [notes, setNotes] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [releasing, setReleasing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +59,7 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
       lockerId: selected.locker_id,
       memberId,
       assignedAt,
+      price: price === "" ? 0 : Number(price),
       notes: notes.trim() || undefined,
     });
     setSaving(false);
@@ -68,6 +71,35 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
 
     setSelected(null);
     setNotes("");
+  }
+
+  async function handleUpdate() {
+    if (!selected?.allocation_id) return;
+    if (!memberId) {
+      setError("Select a member first");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    const res = await updateLockerAllocation({
+      allocationId: selected.allocation_id,
+      memberId,
+      assignedAt,
+      price: price === "" ? 0 : Number(price),
+      notes: notes.trim() || undefined,
+    });
+    setSaving(false);
+
+    if (res?.error) {
+      setError(res.error);
+      return;
+    }
+
+    setSelected(null);
+    setIsEditing(false);
+    setNotes("");
+    setPrice("");
   }
 
   async function handleRelease() {
@@ -109,9 +141,17 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
                 onClick={() => {
                   setSelected(locker);
                   setError(null);
+                  setIsEditing(false);
+                  setAssignedAt(locker.assigned_at ?? todayStr());
+                  setPrice(locker.price ?? "");
+                  setNotes(locker.notes ?? "");
+                  if (locker.member_id) setMemberId(locker.member_id);
                   if (!isAllocated && members.length) {
                     setMemberId(members[0].member_id);
                     setMemberQuery("");
+                    setPrice("");
+                    setNotes("");
+                    setAssignedAt(todayStr());
                   }
                 }}
                 className={`rounded-xl border px-3 py-3 text-left transition ${
@@ -160,7 +200,7 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
                 </button>
               </div>
 
-              {selected.allocation_status === "active" ? (
+              {selected.allocation_status === "active" && !isEditing ? (
                 <div className="space-y-4">
                   <div className="rounded-xl border border-parchment-line bg-white/70 p-4">
                     <p className="text-sm font-medium text-ink-text">{selected.full_name}</p>
@@ -168,6 +208,12 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
                     <p className="mt-2 text-xs text-ink-text/45">
                       Allocated on {selected.assigned_at ? new Date(selected.assigned_at).toLocaleDateString("en-IN") : "—"}
                     </p>
+                    <p className="mt-1 text-xs text-ink-text/45">
+                      Price: ₹{Number(selected.price ?? 0).toLocaleString("en-IN")}
+                    </p>
+                    {selected.notes && (
+                      <p className="mt-1 text-xs text-ink-text/45">Note: {selected.notes}</p>
+                    )}
                   </div>
 
                   {error && (
@@ -176,14 +222,23 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
                     </p>
                   )}
 
-                  <button
-                    onClick={handleRelease}
-                    disabled={releasing}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-terracotta px-4 py-2.5 text-sm font-medium text-parchment transition hover:opacity-90 disabled:opacity-50"
-                  >
-                    {releasing ? <Loader2 size={14} className="animate-spin" /> : <Unlock size={15} />}
-                    {releasing ? "Releasing…" : "Release locker"}
-                  </button>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg border border-ink-line/20 bg-white px-4 py-2.5 text-sm font-medium text-ink-text transition hover:bg-ink-text/5"
+                    >
+                      <Pencil size={15} />
+                      Edit allocation
+                    </button>
+                    <button
+                      onClick={handleRelease}
+                      disabled={releasing}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-terracotta px-4 py-2.5 text-sm font-medium text-parchment transition hover:opacity-90 disabled:opacity-50"
+                    >
+                      {releasing ? <Loader2 size={14} className="animate-spin" /> : <Unlock size={15} />}
+                      {releasing ? "Releasing…" : "Release locker"}
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -249,6 +304,18 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
                   </div>
 
                   <div>
+                    <label className="mb-1.5 block text-xs font-mono uppercase tracking-wider text-ink-text/50">Price (₹)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={price}
+                      onChange={(event) => setPrice(event.target.value === "" ? "" : Number(event.target.value))}
+                      className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
+                    />
+                  </div>
+
+                  <div>
                     <label className="mb-1.5 block text-xs font-mono uppercase tracking-wider text-ink-text/50">Notes (optional)</label>
                     <textarea
                       rows={2}
@@ -264,14 +331,26 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
                     </p>
                   )}
 
-                  <button
-                    onClick={handleAllocate}
-                    disabled={saving || members.length === 0}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-ink-text px-4 py-2.5 text-sm font-medium text-parchment transition hover:bg-ink disabled:opacity-50"
-                  >
-                    {saving ? <Loader2 size={14} className="animate-spin" /> : <LockKeyhole size={15} />}
-                    {saving ? "Allocating…" : "Allocate locker"}
-                  </button>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {selected.allocation_status === "active" && isEditing && (
+                      <button
+                        onClick={() => setIsEditing(false)}
+                        className="w-full rounded-lg border border-ink-line/20 bg-white px-4 py-2.5 text-sm font-medium text-ink-text transition hover:bg-ink-text/5"
+                      >
+                        Cancel edit
+                      </button>
+                    )}
+                    <button
+                      onClick={selected.allocation_status === "active" ? handleUpdate : handleAllocate}
+                      disabled={saving || members.length === 0}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-ink-text px-4 py-2.5 text-sm font-medium text-parchment transition hover:bg-ink disabled:opacity-50"
+                    >
+                      {saving ? <Loader2 size={14} className="animate-spin" /> : <LockKeyhole size={15} />}
+                      {saving
+                        ? (selected.allocation_status === "active" ? "Saving…" : "Allocating…")
+                        : (selected.allocation_status === "active" ? "Save changes" : "Allocate locker")}
+                    </button>
+                  </div>
                 </div>
               )}
             </motion.div>

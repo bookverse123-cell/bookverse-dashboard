@@ -12,8 +12,19 @@ function revalidateAll() {
   revalidatePath("/dashboard");
 }
 
-export async function allocateLocker(input: { lockerId: string; memberId: string; assignedAt: string; notes?: string }) {
+export async function allocateLocker(input: {
+  lockerId: string;
+  memberId: string;
+  assignedAt: string;
+  price: number;
+  notes?: string;
+}) {
   if (!isSupabaseConfigured()) return { error: DEMO_ERROR };
+
+  const price = Number(input.price ?? 0);
+  if (!Number.isFinite(price) || price < 0) {
+    return { error: "Locker price must be zero or greater" };
+  }
 
   const supabase = await createClient();
 
@@ -38,9 +49,43 @@ export async function allocateLocker(input: { lockerId: string; memberId: string
     locker_id: input.lockerId,
     member_id: input.memberId,
     assigned_at: input.assignedAt,
+    price,
     notes: input.notes ?? null,
     status: "active",
   });
+
+  if (error) return { error: error.message };
+
+  revalidateAll();
+  return { success: true };
+}
+
+export async function updateLockerAllocation(input: {
+  allocationId: string;
+  memberId: string;
+  assignedAt: string;
+  price: number;
+  notes?: string;
+}) {
+  if (!isSupabaseConfigured()) return { error: DEMO_ERROR };
+
+  const price = Number(input.price ?? 0);
+  if (!Number.isFinite(price) || price < 0) {
+    return { error: "Locker price must be zero or greater" };
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("locker_allocations")
+    .update({
+      member_id: input.memberId,
+      assigned_at: input.assignedAt,
+      price,
+      notes: input.notes ?? null,
+    })
+    .eq("id", input.allocationId)
+    .eq("status", "active");
 
   if (error) return { error: error.message };
 

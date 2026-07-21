@@ -34,6 +34,8 @@ export async function getLockerStatuses(): Promise<{ lockers: LockerStatus[] }> 
         phone: null,
         assigned_at: null,
         allocation_status: null,
+        price: null,
+        notes: null,
       })),
     };
   }
@@ -91,12 +93,14 @@ export async function getFinanceMonthly() {
     { data: cafeteriaExpenses },
     { data: expenditureRows },
     { data: dailyPassRows },
+    { data: lockerRevenueRows },
   ] = await Promise.all([
     supabase.from("payments").select("payment_date, amount").lte("payment_date", todayStr),
     supabase.from("cafeteria_sales").select("sale_date, amount"),
     supabase.from("cafeteria_expenses").select("expense_date, amount"),
     supabase.from("investments").select("investment_date, amount"),
     supabase.from("daily_passes").select("date, amount"),
+    supabase.from("locker_allocations").select("assigned_at, price"),
   ]);
 
   if (!membershipPayments) return { data: [] };
@@ -105,6 +109,7 @@ export async function getFinanceMonthly() {
     monthKey: string;
     month: string;
     membershipRevenue: number;
+    lockerRevenue: number;
     cafeteriaRevenue: number;
     cafeteriaExpense: number;
     expenditure: number;
@@ -119,6 +124,7 @@ export async function getFinanceMonthly() {
         monthKey: key,
         month: new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { month: "short" }),
         membershipRevenue: 0,
+        lockerRevenue: 0,
         cafeteriaRevenue: 0,
         cafeteriaExpense: 0,
         expenditure: 0,
@@ -141,6 +147,9 @@ export async function getFinanceMonthly() {
   }
   for (const p of dailyPassRows ?? []) {
     getEntry(p.date).membershipRevenue += Number(p.amount);
+  }
+  for (const l of lockerRevenueRows ?? []) {
+    getEntry(l.assigned_at).lockerRevenue += Number(l.price ?? 0);
   }
 
   const sortedKeys = Array.from(map.keys()).sort();

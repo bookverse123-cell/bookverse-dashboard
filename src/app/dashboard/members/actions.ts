@@ -11,6 +11,7 @@ export type DailyPassInput = {
   full_name: string;
   phone: string;
   date: string;
+  amount: number;
 };
 
 type PaymentMethod = "cash" | "upi" | "card" | "bank_transfer" | "other" | "upi_cash";
@@ -175,12 +176,17 @@ export async function addUnassignedMembership(input: AddUnassignedMembershipInpu
 export async function addDailyPass(input: DailyPassInput) {
   if (!isSupabaseConfigured()) return { error: DEMO_ERROR };
 
+  const amount = Number(input.amount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { error: "Daily pass amount must be greater than zero" };
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.from("daily_passes").insert({
     full_name: input.full_name,
     phone: input.phone,
     date: input.date,
-    amount: 200,
+    amount,
   });
 
   if (error) return { error: error.message };
@@ -224,6 +230,52 @@ export async function updateMembershipBatch(input: {
   revalidatePath("/dashboard/members");
   revalidatePath(`/dashboard/members/${input.memberId}`);
   revalidatePath("/dashboard/seats");
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+export async function updateMemberProfile(input: {
+  memberId: string;
+  fullName: string;
+  phone: string;
+  email?: string;
+}) {
+  if (!isSupabaseConfigured()) return { error: DEMO_ERROR };
+
+  const fullName = input.fullName.trim();
+  const phone = input.phone.trim();
+  const email = input.email?.trim() ?? "";
+
+  if (!fullName) return { error: "Member name is required" };
+  if (!phone) return { error: "Phone number is required" };
+
+  const supabase = await createClient();
+
+  const { data: duplicate, error: duplicateError } = await supabase
+    .from("members")
+    .select("id")
+    .eq("phone", phone)
+    .neq("id", input.memberId)
+    .maybeSingle();
+
+  if (duplicateError) return { error: duplicateError.message };
+  if (duplicate) return { error: "Another member already uses this phone number" };
+
+  const { error } = await supabase
+    .from("members")
+    .update({
+      full_name: fullName,
+      phone,
+      email: email || null,
+    })
+    .eq("id", input.memberId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard/members");
+  revalidatePath(`/dashboard/members/${input.memberId}`);
+  revalidatePath("/dashboard/seats");
+  revalidatePath("/dashboard/lockers");
   revalidatePath("/dashboard");
   return { success: true };
 }

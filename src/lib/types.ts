@@ -98,4 +98,6 @@ export type LockerStatus = {
   phone: string | null;
   assigned_at: string | null;
   allocation_status: "active" | "released" | null;
+  price: number | null;
+  notes: string | null;
 };

@@ -18,8 +18,8 @@ import { useRouter } from "next/navigation";
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/seats", label: "Seat Map", icon: Armchair },
-  { href: "/dashboard/lockers", label: "Lockers", icon: Package },
   { href: "/dashboard/members", label: "Members", icon: Users },
+  { href: "/dashboard/lockers", label: "Lockers", icon: Package },
   { href: "/dashboard/finance", label: "Finance", icon: Wallet },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
@@ -45,9 +45,7 @@ export function Sidebar() {
             className="h-9 w-9 rounded-lg object-cover"
           />
           <div>
-            <p className="font-display text-base leading-tight">
-              BOOKVERSE
-            </p>
+            <p className="font-display text-base leading-tight">BOOKVERSE</p>
             <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-parchment/40">
               Operations
             </p>

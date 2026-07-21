@@ -208,12 +208,16 @@ create table if not exists locker_allocations (
   locker_id uuid not null references lockers(id) on delete cascade,
   member_id uuid not null references members(id) on delete cascade,
   assigned_at date not null default current_date,
+  price numeric(10, 2) not null default 0,
   released_at date,
   status text not null default 'active' check (status in ('active', 'released')),
   notes text,
   created_at timestamptz not null default now(),
   check ((status = 'active' and released_at is null) or (status = 'released'))
 );
+
+alter table locker_allocations
+  add column if not exists price numeric(10, 2) not null default 0;
 
 create unique index if not exists uniq_active_locker_allocation
   on locker_allocations(locker_id)
@@ -318,6 +322,8 @@ select
   m.full_name,
   m.phone,
   la.assigned_at,
+  la.price,
+  la.notes,
   la.status as allocation_status
 from lockers l
 left join locker_allocations la on la.locker_id = l.id and la.status = 'active'

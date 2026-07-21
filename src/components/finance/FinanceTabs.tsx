@@ -22,6 +22,7 @@ type MonthRow = {
   monthKey?: string;
   month: string;
   membershipRevenue: number;
+  lockerRevenue: number;
   cafeteriaRevenue: number;
   cafeteriaExpense: number;
   expenditure: number;
@@ -50,13 +51,14 @@ export function FinanceTabs({
   const allTime: MonthRow = {
     month: "All time",
     membershipRevenue: monthly.reduce((s, m) => s + m.membershipRevenue, 0),
+    lockerRevenue: monthly.reduce((s, m) => s + (m.lockerRevenue ?? 0), 0),
     cafeteriaRevenue: monthly.reduce((s, m) => s + m.cafeteriaRevenue, 0),
     cafeteriaExpense: monthly.reduce((s, m) => s + m.cafeteriaExpense, 0),
     expenditure: monthly.reduce((s, m) => s + m.expenditure, 0),
   };
 
   const summary = selectedIdx !== null ? monthly[selectedIdx] : allTime;
-  const totalIncome = summary.membershipRevenue + summary.cafeteriaRevenue;
+  const totalIncome = summary.membershipRevenue + (summary.lockerRevenue ?? 0) + summary.cafeteriaRevenue;
   const net = totalIncome - summary.cafeteriaExpense - summary.expenditure;
 
   return (
@@ -131,6 +133,14 @@ export function FinanceTabs({
                 </p>
                 <p className="mt-1 text-xl font-medium text-ink-text">
                   {fmt(summary.membershipRevenue)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-mono uppercase tracking-wider text-ink-text/40">
+                  Locker revenue
+                </p>
+                <p className="mt-1 text-xl font-medium text-ink-text">
+                  {fmt(summary.lockerRevenue ?? 0)}
                 </p>
               </div>
               <div>

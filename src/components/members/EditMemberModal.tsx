@@ -2,35 +2,35 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { X, Loader2, Ticket } from "lucide-react";
-import { addDailyPass } from "@/app/dashboard/members/actions";
+import { X, Loader2 } from "lucide-react";
+import { updateMemberProfile } from "@/app/dashboard/members/actions";
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
-
-export function AddDailyPassModal({
+export function EditMemberModal({
+  member,
   onClose,
-  onAdded,
+  onSaved,
 }: {
+  member: { member_id: string; full_name: string; phone: string; email: string | null };
   onClose: () => void;
-  onAdded: () => void;
+  onSaved: () => void;
 }) {
-  const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("+91");
-  const [date, setDate] = useState(todayStr());
-  const [amount, setAmount] = useState<number | "">("");
+  const [fullName, setFullName] = useState(member.full_name);
+  const [phone, setPhone] = useState(member.phone);
+  const [email, setEmail] = useState(member.email ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+
     setLoading(true);
     setError(null);
 
-    const res = await addDailyPass({
-      full_name: fullName,
+    const res = await updateMemberProfile({
+      memberId: member.member_id,
+      fullName,
       phone,
-      date,
-      amount: amount === "" ? 0 : Number(amount),
+      email: email || undefined,
     });
 
     setLoading(false);
@@ -40,7 +40,7 @@ export function AddDailyPassModal({
       return;
     }
 
-    onAdded();
+    onSaved();
   }
 
   return (
@@ -57,14 +57,14 @@ export function AddDailyPassModal({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 12 }}
         transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-        className="fixed left-1/2 top-1/2 z-[70] w-[92%] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-parchment p-6 shadow-2xl sm:p-8"
+        className="fixed left-1/2 top-1/2 z-[70] w-[92%] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-parchment p-6 shadow-2xl sm:p-8"
       >
         <div className="flex items-start justify-between">
           <div>
             <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink-text/40">
-              Daily Pass
+              Edit member
             </span>
-            <h2 className="font-display text-2xl text-ink-text mt-1">Add day visitor</h2>
+            <h2 className="mt-1 font-display text-2xl text-ink-text">{member.full_name}</h2>
           </div>
           <button
             onClick={onClose}
@@ -76,56 +76,37 @@ export function AddDailyPassModal({
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div>
-            <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
+            <label className="mb-1.5 block text-xs font-mono uppercase tracking-wider text-ink-text/50">
               Full name
             </label>
             <input
               required
               value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="Visitor name"
+              onChange={(event) => setFullName(event.target.value)}
               className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
+            <label className="mb-1.5 block text-xs font-mono uppercase tracking-wider text-ink-text/50">
               Phone
             </label>
             <input
               required
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+9198xxxxxxx"
+              onChange={(event) => setPhone(event.target.value)}
               className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
-              Date
+            <label className="mb-1.5 block text-xs font-mono uppercase tracking-wider text-ink-text/50">
+              Email (optional)
             </label>
             <input
-              type="date"
-              required
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
-              Amount charged (₹)
-            </label>
-            <input
-              required
-              type="number"
-              min={1}
-              step="0.01"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value === "" ? "" : Number(e.target.value))}
-              placeholder="e.g. 200"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
               className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
             />
           </div>
@@ -136,15 +117,14 @@ export function AddDailyPassModal({
             </p>
           )}
 
-          <motion.button
+          <button
             type="submit"
             disabled={loading}
-            whileTap={{ scale: 0.98 }}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-ink-text px-4 py-3 text-sm font-medium text-parchment transition hover:bg-ink disabled:opacity-50"
           >
-            {loading ? <Loader2 size={16} className="animate-spin" /> : <Ticket size={16} />}
-            {loading ? "Adding…" : "Add daily pass"}
-          </motion.button>
+            {loading && <Loader2 size={16} className="animate-spin" />}
+            {loading ? "Saving…" : "Save details"}
+          </button>
         </form>
       </motion.div>
     </>

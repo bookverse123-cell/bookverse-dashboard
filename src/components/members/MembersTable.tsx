@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, MessageCircle, Phone, Ticket, Trash2, RefreshCw, Eye, ArrowLeftRight, UserPlus, LogOut } from "lucide-react";
+import { Search, MessageCircle, Phone, Ticket, Trash2, RefreshCw, Eye, ArrowLeftRight, UserPlus, LogOut, MoreVertical } from "lucide-react";
 import type { MembershipRow, DailyPassRow, SeatStatus } from "@/lib/types";
 import { sendManualReminder, unassignSeatFromMembership } from "@/app/dashboard/seats/actions";
 import { deleteDailyPass } from "@/app/dashboard/members/actions";
@@ -50,6 +50,7 @@ export function MembersTable({
   const [showUnassignedModal, setShowUnassignedModal] = useState(false);
   const [renewTarget, setRenewTarget] = useState<MembershipRow | null>(null);
   const [changeSeatTarget, setChangeSeatTarget] = useState<MembershipRow | null>(null);
+  const [openMenuMembershipId, setOpenMenuMembershipId] = useState<string | null>(null);
 
   const availableSeats = useMemo(
     () =>
@@ -271,49 +272,80 @@ export function MembersTable({
                       </span>
                     </td>
                     <td className="py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Link
-                          href={`/dashboard/members/${row_.member_id}`}
-                          className="inline-flex items-center gap-1.5 rounded-md border border-ink-line/25 px-2.5 py-1.5 text-xs font-medium text-ink-text/70 transition hover:bg-ink-text/5"
-                        >
-                          <Eye size={13} />
-                          View
-                        </Link>
+                      <div className="relative inline-block text-left">
                         <button
-                          onClick={() => setRenewTarget(row_)}
-                          className="inline-flex items-center gap-1.5 rounded-md border border-brass/30 px-2.5 py-1.5 text-xs font-medium text-brass-soft transition hover:bg-brass/10"
+                          onClick={() =>
+                            setOpenMenuMembershipId((prev) =>
+                              prev === row_.membership_id ? null : row_.membership_id,
+                            )
+                          }
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-ink-line/25 text-ink-text/70 transition hover:bg-ink-text/5"
+                          aria-label="Open member actions"
+                          title="More actions"
                         >
-                          <RefreshCw size={13} />
-                          Renew
+                          <MoreVertical size={16} />
                         </button>
-                        <button
-                          onClick={() => setChangeSeatTarget(row_)}
-                          disabled={!canChangeSeat}
-                          title={canChangeSeat ? "Change this member's seat" : changeSeatDisabledReason}
-                          className="inline-flex items-center gap-1.5 rounded-md border border-ink-line/25 px-2.5 py-1.5 text-xs font-medium text-ink-text/70 transition hover:bg-ink-text/5 disabled:opacity-50"
-                        >
-                          <ArrowLeftRight size={13} />
-                          {row_.is_unassigned ? "Assign Seat" : "Change Seat"}
-                        </button>
-                        {!row_.is_unassigned && (
-                          <button
-                            onClick={() => handleUnassign(row_.membership_id)}
-                            disabled={!canUnassignSeat || unassigningId === row_.membership_id}
-                            title={canUnassignSeat ? "Remove seat and keep membership active" : "Only active memberships can be unassigned"}
-                            className="inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 px-2.5 py-1.5 text-xs font-medium text-terracotta transition hover:bg-terracotta/10 disabled:opacity-50"
-                          >
-                            <LogOut size={13} />
-                            {unassigningId === row_.membership_id ? "Unassigning…" : "Unassign Seat"}
-                          </button>
+
+                        {openMenuMembershipId === row_.membership_id && (
+                          <div className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-lg border border-parchment-line bg-white shadow-xl">
+                            <Link
+                              href={`/dashboard/members/${row_.member_id}`}
+                              onClick={() => setOpenMenuMembershipId(null)}
+                              className="flex w-full items-center gap-2 border-b border-parchment-line/60 px-3 py-2 text-left text-xs text-ink-text/75 transition hover:bg-ink-text/5"
+                            >
+                              <Eye size={13} />
+                              View
+                            </Link>
+                            <button
+                              onClick={() => {
+                                setRenewTarget(row_);
+                                setOpenMenuMembershipId(null);
+                              }}
+                              className="flex w-full items-center gap-2 border-b border-parchment-line/60 px-3 py-2 text-left text-xs text-brass-soft transition hover:bg-brass/10"
+                            >
+                              <RefreshCw size={13} />
+                              Renew
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (!canChangeSeat) return;
+                                setChangeSeatTarget(row_);
+                                setOpenMenuMembershipId(null);
+                              }}
+                              disabled={!canChangeSeat}
+                              title={canChangeSeat ? "Change this member's seat" : changeSeatDisabledReason}
+                              className="flex w-full items-center gap-2 border-b border-parchment-line/60 px-3 py-2 text-left text-xs text-ink-text/75 transition hover:bg-ink-text/5 disabled:opacity-50"
+                            >
+                              <ArrowLeftRight size={13} />
+                              {row_.is_unassigned ? "Assign Seat" : "Change Seat"}
+                            </button>
+                            {!row_.is_unassigned && (
+                              <button
+                                onClick={() => {
+                                  handleUnassign(row_.membership_id);
+                                  setOpenMenuMembershipId(null);
+                                }}
+                                disabled={!canUnassignSeat || unassigningId === row_.membership_id}
+                                title={canUnassignSeat ? "Remove seat and keep membership active" : "Only active memberships can be unassigned"}
+                                className="flex w-full items-center gap-2 border-b border-parchment-line/60 px-3 py-2 text-left text-xs text-terracotta transition hover:bg-terracotta/10 disabled:opacity-50"
+                              >
+                                <LogOut size={13} />
+                                {unassigningId === row_.membership_id ? "Unassigning…" : "Unassign Seat"}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => {
+                                handleRemind(row_.membership_id);
+                                setOpenMenuMembershipId(null);
+                              }}
+                              disabled={sendingId === row_.membership_id}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-sage transition hover:bg-sage/10 disabled:opacity-50"
+                            >
+                              <MessageCircle size={13} />
+                              {sendingId === row_.membership_id ? "Sending…" : "Remind"}
+                            </button>
+                          </div>
                         )}
-                        <button
-                          onClick={() => handleRemind(row_.membership_id)}
-                          disabled={sendingId === row_.membership_id}
-                          className="inline-flex items-center gap-1.5 rounded-md border border-sage/30 px-2.5 py-1.5 text-xs font-medium text-sage transition hover:bg-sage/10 disabled:opacity-50"
-                        >
-                          <MessageCircle size={13} />
-                          {sendingId === row_.membership_id ? "Sending…" : "Remind"}
-                        </button>
                       </div>
                     </td>
                   </motion.tr>
