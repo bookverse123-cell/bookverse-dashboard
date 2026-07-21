@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { SeatStatus, MembershipRow, LedgerRow, DailyPassRow } from "@/lib/types";
+import type { SeatStatus, MembershipRow, LedgerRow, DailyPassRow, LockerStatus } from "@/lib/types";
 
 export function isSupabaseConfigured() {
   return (
@@ -19,6 +19,34 @@ export async function getSeatStatuses(): Promise<{ seats: SeatStatus[] }> {
 
   if (error || !data) return { seats: [] };
   return { seats: data as SeatStatus[] };
+}
+
+export async function getLockerStatuses(): Promise<{ lockers: LockerStatus[] }> {
+  if (!isSupabaseConfigured()) {
+    return {
+      lockers: Array.from({ length: 27 }, (_, index) => ({
+        locker_id: `demo-locker-${index + 1}`,
+        locker_code: `LK-${String(index + 1).padStart(2, "0")}`,
+        is_active: true,
+        allocation_id: null,
+        member_id: null,
+        full_name: null,
+        phone: null,
+        assigned_at: null,
+        allocation_status: null,
+      })),
+    };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("locker_status")
+    .select("*")
+    .eq("is_active", true)
+    .order("locker_code");
+
+  if (error || !data) return { lockers: [] };
+  return { lockers: data as LockerStatus[] };
 }
 
 export async function getKPIs() {

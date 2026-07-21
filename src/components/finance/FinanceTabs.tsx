@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { RevenueChart } from "./RevenueChart";
 import { ExpenseBreakdownChart } from "./ExpenseBreakdownChart";
 import { LedgerTable } from "./LedgerTable";
+import { CafeteriaAnalyticsCard } from "./CafeteriaAnalyticsCard";
 import type { LedgerRow } from "@/lib/types";
 
 const TABS = ["Overview", "Cafeteria", "Expenditures"] as const;
@@ -186,24 +187,27 @@ export function FinanceTabs({
       )}
 
       {tab === "Cafeteria" && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <LedgerTable
-            title="Café sales"
-            description="Daily counter sales income"
-            rows={sales}
-            kind="sale"
-            amountClassName="text-sage"
-            amountPrefix="+ ₹"
-          />
-          <LedgerTable
-            title="Café & operating expenses"
-            description="Groceries, utilities, staff, and more"
-            rows={expenses}
-            kind="expense"
-            categories={EXPENSE_CATEGORIES}
-            amountClassName="text-terracotta"
-            amountPrefix="- ₹"
-          />
+        <div className="space-y-4">
+          <CafeteriaAnalyticsCard sales={sales} expenses={expenses} />
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <LedgerTable
+              title="Café sales"
+              description="Daily counter sales income"
+              rows={sales}
+              kind="sale"
+              amountClassName="text-sage"
+              amountPrefix="+ ₹"
+            />
+            <LedgerTable
+              title="Café & operating expenses"
+              description="Groceries, utilities, staff, and more"
+              rows={expenses}
+              kind="expense"
+              categories={EXPENSE_CATEGORIES}
+              amountClassName="text-terracotta"
+              amountPrefix="- ₹"
+            />
+          </div>
         </div>
       )}
 

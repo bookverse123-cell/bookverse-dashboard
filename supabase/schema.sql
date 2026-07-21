@@ -186,6 +186,46 @@ create table if not exists daily_passes (
 
 create index if not exists idx_daily_passes_date on daily_passes(date);
 
+-- ----------------------------------------------------------------------------
+-- LOCKERS
+-- Fixed lockers that can be allocated to members.
+-- ----------------------------------------------------------------------------
+create table if not exists lockers (
+  id uuid primary key default uuid_generate_v4(),
+  locker_code text not null unique,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+-- Seed 27 lockers (LK-01 to LK-27)
+insert into lockers (locker_code)
+select format('LK-%s', lpad(gs::text, 2, '0'))
+from generate_series(1, 27) as gs
+on conflict (locker_code) do nothing;
+
+create table if not exists locker_allocations (
+  id uuid primary key default uuid_generate_v4(),
+  locker_id uuid not null references lockers(id) on delete cascade,
+  member_id uuid not null references members(id) on delete cascade,
+  assigned_at date not null default current_date,
+  released_at date,
+  status text not null default 'active' check (status in ('active', 'released')),
+  notes text,
+  created_at timestamptz not null default now(),
+  check ((status = 'active' and released_at is null) or (status = 'released'))
+);
+
+create unique index if not exists uniq_active_locker_allocation
+  on locker_allocations(locker_id)
+  where (status = 'active');
+
+create unique index if not exists uniq_active_member_locker
+  on locker_allocations(member_id)
+  where (status = 'active');
+
+create index if not exists idx_locker_allocations_member on locker_allocations(member_id);
+create index if not exists idx_locker_allocations_status on locker_allocations(status);
+
 -- ============================================================================
 -- VIEWS
 -- ============================================================================
@@ -268,6 +308,21 @@ where m.status = 'active'
   and m.end_date >= current_date
   and m.end_date <= current_date + interval '3 days';
 
+create or replace view locker_status as
+select
+  l.id as locker_id,
+  l.locker_code,
+  l.is_active,
+  la.id as allocation_id,
+  la.member_id,
+  m.full_name,
+  m.phone,
+  la.assigned_at,
+  la.status as allocation_status
+from lockers l
+left join locker_allocations la on la.locker_id = l.id and la.status = 'active'
+left join members m on m.id = la.member_id;
+
 -- ============================================================================
 -- FUNCTION + TRIGGER: auto-expire memberships whose end_date has passed
 -- ============================================================================
@@ -295,6 +350,8 @@ alter table cafeteria_expenses enable row level security;
 alter table cafeteria_sales enable row level security;
 alter table investments enable row level security;
 alter table notifications_log enable row level security;
+alter table lockers enable row level security;
+alter table locker_allocations enable row level security;
 
 create policy "authenticated full access" on seats for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
@@ -313,6 +370,10 @@ create policy "authenticated full access" on cafeteria_sales for all
 create policy "authenticated full access" on investments for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 create policy "authenticated full access" on notifications_log for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "authenticated full access" on lockers for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+create policy "authenticated full access" on locker_allocations for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
 
 alter table daily_passes enable row level security;

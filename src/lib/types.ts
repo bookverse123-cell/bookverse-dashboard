@@ -87,3 +87,15 @@ export type DailyPassRow = {
   date: string;
   amount: number;
 };
+
+export type LockerStatus = {
+  locker_id: string;
+  locker_code: string;
+  is_active: boolean;
+  allocation_id: string | null;
+  member_id: string | null;
+  full_name: string | null;
+  phone: string | null;
+  assigned_at: string | null;
+  allocation_status: "active" | "released" | null;
+};
