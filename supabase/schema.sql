@@ -63,11 +63,15 @@ create table if not exists memberships (
   plan_id uuid not null references membership_plans(id),
   start_date date not null,
   end_date date not null,
+  batch text check (batch in ('24x7 Batch', 'Morning Batch', 'Evening Batch')),
   amount_paid numeric(10, 2) not null default 0,
   status text not null default 'active' check (status in ('active', 'expired', 'cancelled')),
   reminder_sent_at timestamptz,           -- last time an expiry reminder was sent
   created_at timestamptz not null default now()
 );
+
+alter table memberships
+  add column if not exists batch text;
 
 create index if not exists idx_memberships_seat on memberships(seat_id);
 create index if not exists idx_memberships_member on memberships(member_id);

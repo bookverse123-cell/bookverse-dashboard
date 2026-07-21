@@ -71,6 +71,7 @@ export function MemberTimeline({ memberships }: { memberships: MemberHistoryEntr
 
               <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-text/70">
                 <span>₹{m.amount_paid.toLocaleString("en-IN")}</span>
+                {m.batch && <span className="text-ink-text/60">· {m.batch}</span>}
                 {primaryPayment && (
                   <span className="text-ink-text/40">· {methodLabel(primaryPayment.method)}</span>
                 )}

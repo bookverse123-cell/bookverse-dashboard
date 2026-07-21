@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { X, Loader2 } from "lucide-react";
 import type { SeatStatus } from "@/lib/types";
 import { assignSeat } from "@/app/dashboard/seats/actions";
+import { BATCH_OPTIONS, type BatchOption } from "@/lib/batches";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -27,6 +28,7 @@ export function AssignSeatModal({
   const [phone, setPhone] = useState("+91");
   const [email, setEmail] = useState("");
   const [duration, setDuration] = useState<1 | 2 | 3>(1);
+  const [batch, setBatch] = useState<BatchOption>("24x7 Batch");
   const [startDate, setStartDate] = useState(todayStr());
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [amount, setAmount] = useState(0);
@@ -47,6 +49,7 @@ export function AssignSeatModal({
         phone,
         email: email || undefined,
         duration,
+        batch,
         startDate,
         amountPaid: amount,
         paymentMethod,
@@ -157,16 +160,33 @@ export function AssignSeatModal({
             </div>
             <div>
               <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
-                Start date
+                Batch
               </label>
-              <input
-                type="date"
-                required
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+              <select
+                value={batch}
+                onChange={(e) => setBatch(e.target.value as BatchOption)}
                 className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
-              />
+              >
+                {BATCH_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
+              Start date
+            </label>
+            <input
+              type="date"
+              required
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

@@ -4,6 +4,7 @@ import { ChevronLeft, Phone, Mail, IndianRupee, CalendarDays, Layers } from "luc
 import { getMemberDetail } from "@/lib/data";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { MemberTimeline } from "@/components/members/MemberTimeline";
+import { MemberBatchEditor } from "@/components/members/MemberBatchEditor";
 
 export default async function MemberDetailPage({
   params,
@@ -72,6 +73,14 @@ export default async function MemberDetailPage({
             Member since {joinedLabel}
           </p>
         </div>
+
+        {latestMembership && (
+          <MemberBatchEditor
+            membershipId={latestMembership.membership_id}
+            memberId={detail.member_id}
+            initialBatch={latestMembership.batch}
+          />
+        )}
 
         {/* KPI strip */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

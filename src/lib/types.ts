@@ -1,3 +1,5 @@
+import type { BatchOption } from "@/lib/batches";
+
 export type Zone = "library" | "lounge";
 export type OccupancyStatus = "available" | "occupied" | "expired";
 
@@ -34,6 +36,7 @@ export type MembershipRow = {
   end_date: string;
   status: "active" | "expired" | "cancelled";
   days_until_expiry: number;
+  batch: BatchOption | null;
   remarks: string | null;
 };
 
@@ -49,6 +52,7 @@ export type MemberHistoryEntry = {
   end_date: string;
   duration_months: number;
   amount_paid: number;
+  batch: BatchOption | null;
   status: "active" | "expired" | "cancelled";
   remarks: string | null;
   payments: PaymentEntry[];

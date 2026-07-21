@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/data";
+import { isBatchOption, type BatchOption } from "@/lib/batches";
 import { revalidatePath } from "next/cache";
 
 export type AssignSeatInput = {
@@ -12,6 +13,7 @@ export type AssignSeatInput = {
   duration: 1 | 2 | 3;
   startDate: string;
   amountPaid: number;
+  batch: BatchOption;
   paymentMethod: string;
   remarks?: string;
 };
@@ -32,6 +34,10 @@ export async function assignSeat(input: AssignSeatInput) {
     return {
       error: "Connect Supabase first (see README) — demo data is read-only.",
     };
+  }
+
+  if (!isBatchOption(input.batch)) {
+    return { error: "Invalid batch selected" };
   }
 
   const supabase = await createClient();
@@ -77,6 +83,7 @@ export async function assignSeat(input: AssignSeatInput) {
       start_date: input.startDate,
       end_date: endDate,
       amount_paid: input.amountPaid,
+      batch: input.batch,
       status: "active",
       remarks: input.remarks ?? null,
     })
@@ -128,6 +135,7 @@ export type RenewInput = {
   amount: number;
   duration: 1 | 2 | 3;
   startFrom: "today" | "end_date";
+  batch: BatchOption;
   paymentMethod: string;
   remarks?: string;
 };
@@ -135,6 +143,10 @@ export type RenewInput = {
 export async function renewMembership(input: RenewInput) {
   if (!isSupabaseConfigured()) {
     return { error: "Connect Supabase first — demo data is read-only." };
+  }
+
+  if (!isBatchOption(input.batch)) {
+    return { error: "Invalid batch selected" };
   }
 
   const supabase = await createClient();
@@ -176,6 +188,7 @@ export async function renewMembership(input: RenewInput) {
       start_date: newStart,
       end_date: newEnd,
       amount_paid: input.amount,
+      batch: input.batch,
       status: "active",
       remarks: input.remarks ?? null,
     })

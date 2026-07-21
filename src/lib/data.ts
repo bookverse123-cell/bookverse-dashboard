@@ -213,6 +213,7 @@ type MembershipJoinRow = {
   end_date: string;
   status: "active" | "expired" | "cancelled";
   amount_paid: number;
+  batch: import("./batches").BatchOption | null;
   remarks: string | null;
   members: { id: string; full_name: string; phone: string; email: string | null } | null;
   seats: { seat_code: string; zone: "library" | "lounge" } | null;
@@ -223,7 +224,7 @@ export async function getMemberships(): Promise<{ data: MembershipRow[] }> {
   const { data, error } = await supabase
     .from("memberships")
     .select(
-      "id, start_date, end_date, status, amount_paid, remarks, members(id, full_name, phone, email), seats(seat_code, zone)"
+      "id, start_date, end_date, status, amount_paid, batch, remarks, members(id, full_name, phone, email), seats(seat_code, zone)"
     )
     .order("created_at", { ascending: false });
 
@@ -255,6 +256,7 @@ export async function getMemberships(): Promise<{ data: MembershipRow[] }> {
         end_date: row.end_date,
         status: row.status,
         days_until_expiry: days,
+        batch: row.batch,
         remarks: row.remarks,
       };
     });
@@ -299,6 +301,7 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
           end_date: "2026-05-15",
           duration_months: 1,
           amount_paid: 2200,
+          batch: "Morning Batch",
           status: "expired",
           remarks: null,
           payments: [{ amount: 2200, payment_date: "2026-04-15", method: "cash" }],
@@ -309,6 +312,7 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
           end_date: "2026-07-15",
           duration_months: 2,
           amount_paid: 4200,
+          batch: "Evening Batch",
           status: "expired",
           remarks: "Paid in advance",
           payments: [{ amount: 4200, payment_date: "2026-05-15", method: "upi" }],
@@ -319,6 +323,7 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
           end_date: "2026-08-15",
           duration_months: 1,
           amount_paid: 2300,
+          batch: "24x7 Batch",
           status: "active",
           remarks: null,
           payments: [{ amount: 2300, payment_date: "2026-07-15", method: "cash" }],
@@ -337,7 +342,7 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
       .single(),
     supabase
       .from("memberships")
-      .select("id, start_date, end_date, status, amount_paid, remarks, payments(amount, payment_date, method)")
+      .select("id, start_date, end_date, status, amount_paid, batch, remarks, payments(amount, payment_date, method)")
       .eq("member_id", memberId)
       .order("start_date", { ascending: true }),
   ]);
@@ -350,6 +355,7 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
     end_date: string;
     status: "active" | "expired" | "cancelled";
     amount_paid: number;
+    batch: import("./batches").BatchOption | null;
     remarks: string | null;
     payments: { amount: number; payment_date: string; method: string }[];
   }) => {
@@ -364,6 +370,7 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
       end_date: m.end_date,
       duration_months,
       amount_paid: Number(m.amount_paid),
+      batch: m.batch,
       status: m.status,
       remarks: m.remarks,
       payments: (m.payments ?? []).map((p) => ({
