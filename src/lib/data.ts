@@ -62,6 +62,7 @@ export async function getFinanceMonthly() {
   if (!membershipPayments) return { data: [] };
 
   type Row = {
+    monthKey: string;
     month: string;
     membershipRevenue: number;
     cafeteriaRevenue: number;
@@ -75,6 +76,7 @@ export async function getFinanceMonthly() {
     const key = dateStr.slice(0, 7);
     if (!map.has(key)) {
       map.set(key, {
+        monthKey: key,
         month: new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { month: "short" }),
         membershipRevenue: 0,
         cafeteriaRevenue: 0,

@@ -18,6 +18,7 @@ const EXPENDITURE_CATEGORIES = [
 ];
 
 type MonthRow = {
+  monthKey?: string;
   month: string;
   membershipRevenue: number;
   cafeteriaRevenue: number;
@@ -178,7 +179,7 @@ export function FinanceTabs({
           </motion.div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <RevenueChart data={monthly} />
+            <RevenueChart data={monthly} expenditures={expenditures} />
             <ExpenseBreakdownChart data={expenseBreakdown} />
           </div>
         </div>

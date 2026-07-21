@@ -4,13 +4,14 @@ import { KPICard } from "@/components/dashboard/KPICard";
 import { OccupancyDonut } from "@/components/dashboard/OccupancyDonut";
 import { RevenueChart } from "@/components/finance/RevenueChart";
 import { RenewalsList } from "@/components/dashboard/RenewalsList";
-import { getKPIs, getFinanceMonthly, getExpiringMemberships } from "@/lib/data";
+import { getKPIs, getFinanceMonthly, getExpiringMemberships, getExpenditures } from "@/lib/data";
 
 export default async function DashboardOverviewPage() {
-  const [kpis, finance, renewals] = await Promise.all([
+  const [kpis, finance, renewals, expenditures] = await Promise.all([
     getKPIs(),
     getFinanceMonthly(),
     getExpiringMemberships(),
+    getExpenditures(),
   ]);
 
   const latestMonth = finance.data[finance.data.length - 1];
@@ -61,7 +62,7 @@ export default async function DashboardOverviewPage() {
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="lg:col-span-2">
-            <RevenueChart data={finance.data} />
+            <RevenueChart data={finance.data} expenditures={expenditures.data} />
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1">
             <OccupancyDonut
