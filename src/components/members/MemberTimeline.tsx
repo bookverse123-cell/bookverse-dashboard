@@ -54,7 +54,7 @@ export function MemberTimeline({ memberships }: { memberships: MemberHistoryEntr
             </div>
 
             {/* Card */}
-            <div className={`mb-6 flex-1 rounded-xl border border-parchment-line bg-white/60 p-4 ${isLast ? "mb-0" : ""}`}>
+            <div className={`${isLast ? "mb-0" : "mb-6"} flex-1 rounded-xl border border-parchment-line bg-white/60 p-4`}>
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p className="text-sm font-medium text-ink-text">
