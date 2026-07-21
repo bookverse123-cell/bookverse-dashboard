@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, MessageCircle, Phone, Ticket, Trash2, RefreshCw } from "lucide-react";
+import { Search, MessageCircle, Phone, Ticket, Trash2, RefreshCw, Eye } from "lucide-react";
 import type { MembershipRow, DailyPassRow } from "@/lib/types";
 import { sendManualReminder } from "@/app/dashboard/seats/actions";
 import { deleteDailyPass } from "@/app/dashboard/members/actions";
@@ -235,6 +235,13 @@ export function MembersTable({
                     </td>
                     <td className="py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <Link
+                          href={`/dashboard/members/${row_.member_id}`}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-ink-line/25 px-2.5 py-1.5 text-xs font-medium text-ink-text/70 transition hover:bg-ink-text/5"
+                        >
+                          <Eye size={13} />
+                          View
+                        </Link>
                         <button
                           onClick={() => setRenewTarget(row_)}
                           className="inline-flex items-center gap-1.5 rounded-md border border-brass/30 px-2.5 py-1.5 text-xs font-medium text-brass-soft transition hover:bg-brass/10"

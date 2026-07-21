@@ -46,20 +46,20 @@ export async function getFinanceMonthly() {
   const todayStr = new Date().toISOString().slice(0, 10);
 
   const [
-    { data: memberships },
+    { data: membershipPayments },
     { data: cafeteriaSales },
     { data: cafeteriaExpenses },
     { data: investmentRows },
     { data: dailyPassRows },
   ] = await Promise.all([
-    supabase.from("memberships").select("start_date, amount_paid").lte("start_date", todayStr),
+    supabase.from("payments").select("payment_date, amount").lte("payment_date", todayStr),
     supabase.from("cafeteria_sales").select("sale_date, amount"),
     supabase.from("cafeteria_expenses").select("expense_date, amount"),
     supabase.from("investments").select("investment_date, amount"),
     supabase.from("daily_passes").select("date, amount"),
   ]);
 
-  if (!memberships) return { data: [] };
+  if (!membershipPayments) return { data: [] };
 
   type Row = {
     month: string;
@@ -85,8 +85,8 @@ export async function getFinanceMonthly() {
     return map.get(key)!;
   }
 
-  for (const m of memberships) {
-    getEntry(m.start_date).membershipRevenue += Number(m.amount_paid);
+  for (const payment of membershipPayments) {
+    getEntry(payment.payment_date).membershipRevenue += Number(payment.amount);
   }
   for (const s of cafeteriaSales ?? []) {
     getEntry(s.sale_date).cafeteriaRevenue += Number(s.amount);

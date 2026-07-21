@@ -24,6 +24,7 @@ export function RenewMembershipModal({
   const [amount, setAmount] = useState(0);
   const [startFrom, setStartFrom] = useState<"today" | "end_date">("today");
   const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [remarks, setRemarks] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,6 +46,7 @@ export function RenewMembershipModal({
         duration,
         startFrom,
         paymentMethod,
+        remarks: remarks || undefined,
       });
     } finally {
       setLoading(false);
@@ -146,11 +148,15 @@ export function RenewMembershipModal({
                 Amount paid (₹)
               </label>
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 required
-                min={0}
-                value={amount}
-                onChange={(e) => setAmount(Number(e.target.value))}
+                value={amount === 0 ? "" : String(amount)}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\D/g, "");
+                  setAmount(v ? Number(v) : 0);
+                }}
+                placeholder="0"
                 className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
               />
             </div>
@@ -171,6 +177,19 @@ export function RenewMembershipModal({
               <option value="bank_transfer">Bank transfer</option>
               <option value="other">Other</option>
             </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
+              Remarks (optional)
+            </label>
+            <textarea
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              placeholder="Any notes about this membership…"
+              rows={2}
+              className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30 resize-none"
+            />
           </div>
 
           {error && (

@@ -13,6 +13,7 @@ export type AssignSeatInput = {
   startDate: string;
   amountPaid: number;
   paymentMethod: string;
+  remarks?: string;
 };
 
 function revalidateAll() {
@@ -20,6 +21,10 @@ function revalidateAll() {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/members");
   revalidatePath("/dashboard/finance");
+}
+
+function revalidateMemberPage(memberId: string) {
+  revalidatePath(`/dashboard/members/${memberId}`);
 }
 
 export async function assignSeat(input: AssignSeatInput) {
@@ -73,6 +78,7 @@ export async function assignSeat(input: AssignSeatInput) {
       end_date: endDate,
       amount_paid: input.amountPaid,
       status: "active",
+      remarks: input.remarks ?? null,
     })
     .select("id")
     .single();
@@ -123,6 +129,7 @@ export type RenewInput = {
   duration: 1 | 2 | 3;
   startFrom: "today" | "end_date";
   paymentMethod: string;
+  remarks?: string;
 };
 
 export async function renewMembership(input: RenewInput) {
@@ -134,7 +141,7 @@ export async function renewMembership(input: RenewInput) {
 
   const { data: current, error: fetchError } = await supabase
     .from("memberships")
-    .select("end_date")
+    .select("id, member_id, seat_id, end_date, status")
     .eq("id", input.membershipId)
     .single();
 
@@ -150,27 +157,56 @@ export async function renewMembership(input: RenewInput) {
   const rClampedDay = Math.min(rd, rLastDay);
   const newEnd = new Date(Date.UTC(ry, rTargetMonth, rClampedDay)).toISOString().slice(0, 10);
 
-  const { error: updateError } = await supabase
+  // Close previous membership period so history stays intact.
+  const previousStatus: "expired" | "cancelled" = newStart >= current.end_date ? "expired" : "cancelled";
+  const { error: closeError } = await supabase
     .from("memberships")
     .update({
+      status: previousStatus,
+    })
+    .eq("id", input.membershipId);
+
+  if (closeError) return { error: closeError.message };
+
+  const { data: newMembership, error: insertError } = await supabase
+    .from("memberships")
+    .insert({
+      member_id: current.member_id,
+      seat_id: current.seat_id,
       start_date: newStart,
       end_date: newEnd,
       amount_paid: input.amount,
       status: "active",
+      remarks: input.remarks ?? null,
     })
-    .eq("id", input.membershipId);
+    .select("id")
+    .single();
 
-  if (updateError) return { error: updateError.message };
+  if (insertError || !newMembership) {
+    await supabase
+      .from("memberships")
+      .update({ status: current.status })
+      .eq("id", input.membershipId);
+    return { error: insertError?.message ?? "Failed to create renewed membership" };
+  }
 
   const { error: paymentError } = await supabase.from("payments").insert({
-    membership_id: input.membershipId,
+    membership_id: newMembership.id,
     amount: input.amount,
     payment_date: today,
     method: input.paymentMethod,
   });
-  if (paymentError) return { error: paymentError.message };
+  if (paymentError) {
+    await supabase.from("memberships").delete().eq("id", newMembership.id);
+    await supabase
+      .from("memberships")
+      .update({ status: current.status })
+      .eq("id", input.membershipId);
+    return { error: paymentError.message };
+  }
 
   revalidateAll();
+  revalidateMemberPage(current.member_id);
   return { success: true };
 }
 

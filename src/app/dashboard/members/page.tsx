@@ -10,11 +10,33 @@ export default async function MembersPage() {
     getDailyPasses(),
   ]);
 
-  const active = rows.filter((r) => r.status === "active" && r.days_until_expiry >= 0).length;
-  const renewalDue = rows.filter(
+  function isNewerMembership(a: (typeof rows)[number], b: (typeof rows)[number]) {
+    if (a.start_date !== b.start_date) return a.start_date > b.start_date;
+    if (a.end_date !== b.end_date) return a.end_date > b.end_date;
+    if (a.status !== b.status) return a.status === "active";
+    return false;
+  }
+
+  const latestByMember = new Map<string, (typeof rows)[number]>();
+  for (const row of rows) {
+    const personKey = row.phone.trim();
+    const existing = latestByMember.get(personKey);
+    if (!existing) {
+      latestByMember.set(personKey, row);
+      continue;
+    }
+
+    if (isNewerMembership(row, existing)) {
+      latestByMember.set(personKey, row);
+    }
+  }
+  const latestRows = Array.from(latestByMember.values());
+
+  const active = latestRows.filter((r) => r.status === "active" && r.days_until_expiry >= 0).length;
+  const renewalDue = latestRows.filter(
     (r) => r.status === "active" && r.days_until_expiry >= 0 && r.days_until_expiry <= 3
   ).length;
-  const overdue = rows.filter((r) => r.status === "active" && r.days_until_expiry < 0).length;
+  const overdue = latestRows.filter((r) => r.status === "active" && r.days_until_expiry < 0).length;
   const todayStr = new Date().toISOString().slice(0, 10);
   const membershipFees = rows
     .filter((r) => r.start_date <= todayStr)
@@ -24,10 +46,10 @@ export default async function MembersPage() {
 
   return (
     <>
-      <Topbar title="Members" subtitle="Every membership, past and present, in one table" />
+      <Topbar title="Members" subtitle="Latest membership status for each member" />
       <div className="space-y-6 px-6 py-6 lg:px-10">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <KPICard icon={<Users size={18} />} label="Total members" value={`${rows.length + dailyPasses.length}`} accent="ink" />
+          <KPICard icon={<Users size={18} />} label="Total members" value={`${latestRows.length + dailyPasses.length}`} accent="ink" />
           <KPICard icon={<UserCheck size={18} />} label="Active memberships" value={`${active}`} accent="sage" delay={0.05} />
           <KPICard icon={<AlertTriangle size={18} />} label="Renewal due / overdue" value={`${renewalDue + overdue}`} accent="brass" delay={0.1} />
           <KPICard
@@ -39,7 +61,7 @@ export default async function MembersPage() {
           />
         </div>
 
-        <MembersTable rows={rows} dailyPasses={dailyPasses} />
+        <MembersTable rows={latestRows} dailyPasses={dailyPasses} />
       </div>
     </>
   );
