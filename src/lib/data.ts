@@ -213,6 +213,7 @@ type MembershipJoinRow = {
   end_date: string;
   status: "active" | "expired" | "cancelled";
   amount_paid: number;
+  remarks: string | null;
   members: { id: string; full_name: string; phone: string; email: string | null } | null;
   seats: { seat_code: string; zone: "library" | "lounge" } | null;
 };
@@ -222,7 +223,7 @@ export async function getMemberships(): Promise<{ data: MembershipRow[] }> {
   const { data, error } = await supabase
     .from("memberships")
     .select(
-      "id, start_date, end_date, status, amount_paid, members(id, full_name, phone, email), seats(seat_code, zone)"
+      "id, start_date, end_date, status, amount_paid, remarks, members(id, full_name, phone, email), seats(seat_code, zone)"
     )
     .order("created_at", { ascending: false });
 
@@ -254,6 +255,7 @@ export async function getMemberships(): Promise<{ data: MembershipRow[] }> {
         end_date: row.end_date,
         status: row.status,
         days_until_expiry: days,
+        remarks: row.remarks,
       };
     });
 
@@ -280,5 +282,103 @@ export async function getExpiringMemberships() {
       end_date: row.end_date,
       days_until_expiry: row.days_left,
     })),
+  };
+}
+
+export async function getMemberDetail(memberId: string): Promise<import("./types").MemberDetail | null> {
+  if (!isSupabaseConfigured()) {
+    return {
+      member_id: memberId,
+      full_name: "Ankit Sharma",
+      phone: "+919417249290",
+      email: "ankit@example.com",
+      memberships: [
+        {
+          membership_id: "demo-1",
+          start_date: "2026-04-15",
+          end_date: "2026-05-15",
+          duration_months: 1,
+          amount_paid: 2200,
+          status: "expired",
+          remarks: null,
+          payments: [{ amount: 2200, payment_date: "2026-04-15", method: "cash" }],
+        },
+        {
+          membership_id: "demo-2",
+          start_date: "2026-05-15",
+          end_date: "2026-07-15",
+          duration_months: 2,
+          amount_paid: 4200,
+          status: "expired",
+          remarks: "Paid in advance",
+          payments: [{ amount: 4200, payment_date: "2026-05-15", method: "upi" }],
+        },
+        {
+          membership_id: "demo-3",
+          start_date: "2026-07-15",
+          end_date: "2026-08-15",
+          duration_months: 1,
+          amount_paid: 2300,
+          status: "active",
+          remarks: null,
+          payments: [{ amount: 2300, payment_date: "2026-07-15", method: "cash" }],
+        },
+      ],
+    };
+  }
+
+  const supabase = await createClient();
+
+  const [{ data: member }, { data: memberships, error }] = await Promise.all([
+    supabase
+      .from("members")
+      .select("id, full_name, phone, email")
+      .eq("id", memberId)
+      .single(),
+    supabase
+      .from("memberships")
+      .select("id, start_date, end_date, status, amount_paid, remarks, payments(amount, payment_date, method)")
+      .eq("member_id", memberId)
+      .order("start_date", { ascending: true }),
+  ]);
+
+  if (!member || error || !memberships) return null;
+
+  const historyEntries: import("./types").MemberHistoryEntry[] = memberships.map((m: {
+    id: string;
+    start_date: string;
+    end_date: string;
+    status: "active" | "expired" | "cancelled";
+    amount_paid: number;
+    remarks: string | null;
+    payments: { amount: number; payment_date: string; method: string }[];
+  }) => {
+    const start = new Date(m.start_date);
+    const end = new Date(m.end_date);
+    const duration_months =
+      (end.getFullYear() - start.getFullYear()) * 12 +
+      (end.getMonth() - start.getMonth());
+    return {
+      membership_id: m.id,
+      start_date: m.start_date,
+      end_date: m.end_date,
+      duration_months,
+      amount_paid: Number(m.amount_paid),
+      status: m.status,
+      remarks: m.remarks,
+      payments: (m.payments ?? []).map((p) => ({
+        amount: Number(p.amount),
+        payment_date: p.payment_date,
+        method: p.method,
+      })),
+    };
+  });
+
+  return {
+    member_id: member.id,
+    full_name: member.full_name,
+    phone: member.phone,
+    email: member.email,
+    memberships: historyEntries,
   };
 }

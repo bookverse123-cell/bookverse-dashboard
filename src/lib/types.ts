@@ -34,6 +34,32 @@ export type MembershipRow = {
   end_date: string;
   status: "active" | "expired" | "cancelled";
   days_until_expiry: number;
+  remarks: string | null;
+};
+
+export type PaymentEntry = {
+  amount: number;
+  payment_date: string;
+  method: string;
+};
+
+export type MemberHistoryEntry = {
+  membership_id: string;
+  start_date: string;
+  end_date: string;
+  duration_months: number;
+  amount_paid: number;
+  status: "active" | "expired" | "cancelled";
+  remarks: string | null;
+  payments: PaymentEntry[];
+};
+
+export type MemberDetail = {
+  member_id: string;
+  full_name: string;
+  phone: string;
+  email: string | null;
+  memberships: MemberHistoryEntry[];
 };
 
 export type LedgerRow = {
