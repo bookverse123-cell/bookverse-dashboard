@@ -103,6 +103,8 @@ export async function assignSeat(input: AssignSeatInput) {
     upiAmount: input.upiAmount,
   });
   if (paymentDetails.error) return { error: paymentDetails.error };
+  const payment = paymentDetails.payment;
+  if (!payment) return { error: "Failed to normalize payment details" };
 
   const supabase = await createClient();
 
@@ -164,11 +166,11 @@ export async function assignSeat(input: AssignSeatInput) {
 
   const { error: paymentError } = await supabase.from("payments").insert({
     membership_id: membership.id,
-    amount: paymentDetails.payment.amount,
+    amount: payment.amount,
     payment_date: input.startDate,
-    method: paymentDetails.payment.method,
-    cash_amount: paymentDetails.payment.cash_amount,
-    upi_amount: paymentDetails.payment.upi_amount,
+    method: payment.method,
+    cash_amount: payment.cash_amount,
+    upi_amount: payment.upi_amount,
   });
   if (paymentError) return { error: paymentError.message };
 
@@ -224,6 +226,8 @@ export async function renewMembership(input: RenewInput) {
     upiAmount: input.upiAmount,
   });
   if (paymentDetails.error) return { error: paymentDetails.error };
+  const payment = paymentDetails.payment;
+  if (!payment) return { error: "Failed to normalize payment details" };
 
   const supabase = await createClient();
 
@@ -281,11 +285,11 @@ export async function renewMembership(input: RenewInput) {
 
   const { error: paymentError } = await supabase.from("payments").insert({
     membership_id: newMembership.id,
-    amount: paymentDetails.payment.amount,
+    amount: payment.amount,
     payment_date: today,
-    method: paymentDetails.payment.method,
-    cash_amount: paymentDetails.payment.cash_amount,
-    upi_amount: paymentDetails.payment.upi_amount,
+    method: payment.method,
+    cash_amount: payment.cash_amount,
+    upi_amount: payment.upi_amount,
   });
   if (paymentError) {
     await supabase.from("memberships").delete().eq("id", newMembership.id);
