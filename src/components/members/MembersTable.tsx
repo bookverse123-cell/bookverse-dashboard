@@ -6,6 +6,7 @@ import { Search, MessageCircle, Phone, Ticket, Trash2, RefreshCw } from "lucide-
 import type { MembershipRow, DailyPassRow } from "@/lib/types";
 import { sendManualReminder } from "@/app/dashboard/seats/actions";
 import { deleteDailyPass } from "@/app/dashboard/members/actions";
+import Link from "next/link";
 import { AddDailyPassModal } from "@/components/members/AddDailyPassModal";
 import { RenewMembershipModal } from "@/components/members/RenewMembershipModal";
 
@@ -202,7 +203,12 @@ export function MembersTable({
                     className="border-b border-parchment-line/60 last:border-0"
                   >
                     <td className="py-3">
-                      <p className="font-medium text-ink-text">{row_.full_name}</p>
+                      <Link
+                        href={`/dashboard/members/${row_.member_id}`}
+                        className="font-medium text-ink-text hover:underline"
+                      >
+                        {row_.full_name}
+                      </Link>
                       <p className="flex items-center gap-1.5 text-xs text-ink-text/45">
                         <Phone size={11} />
                         {row_.phone}
