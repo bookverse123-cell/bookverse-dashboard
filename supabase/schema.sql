@@ -59,7 +59,7 @@ create table if not exists membership_plans (
 create table if not exists memberships (
   id uuid primary key default uuid_generate_v4(),
   member_id uuid not null references members(id) on delete cascade,
-  seat_id uuid not null references seats(id) on delete restrict,
+  seat_id uuid references seats(id) on delete restrict,
   plan_id uuid not null references membership_plans(id),
   start_date date not null,
   end_date date not null,
@@ -80,7 +80,7 @@ create index if not exists idx_memberships_status_end on memberships(status, end
 -- Only one ACTIVE membership per seat at a time
 create unique index if not exists uniq_active_seat
   on memberships(seat_id)
-  where (status = 'active');
+  where (status = 'active' and seat_id is not null);
 
 -- ----------------------------------------------------------------------------
 -- PAYMENTS
@@ -258,12 +258,12 @@ select
   mem.id as member_id,
   mem.full_name,
   mem.phone,
-  s.seat_code,
+  coalesce(s.seat_code, 'Unassigned') as seat_code,
   s.zone,
   (m.end_date - current_date) as days_left
 from memberships m
 join members mem on mem.id = m.member_id
-join seats s on s.id = m.seat_id
+left join seats s on s.id = m.seat_id
 where m.status = 'active'
   and m.end_date >= current_date
   and m.end_date <= current_date + interval '3 days';

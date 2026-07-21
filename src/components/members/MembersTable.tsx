@@ -2,16 +2,17 @@
 
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, MessageCircle, Phone, Ticket, Trash2, RefreshCw, Eye, ArrowLeftRight } from "lucide-react";
+import { Search, MessageCircle, Phone, Ticket, Trash2, RefreshCw, Eye, ArrowLeftRight, UserPlus, LogOut } from "lucide-react";
 import type { MembershipRow, DailyPassRow, SeatStatus } from "@/lib/types";
-import { sendManualReminder } from "@/app/dashboard/seats/actions";
+import { sendManualReminder, unassignSeatFromMembership } from "@/app/dashboard/seats/actions";
 import { deleteDailyPass } from "@/app/dashboard/members/actions";
 import Link from "next/link";
 import { AddDailyPassModal } from "@/components/members/AddDailyPassModal";
 import { RenewMembershipModal } from "@/components/members/RenewMembershipModal";
 import { ChangeSeatModal } from "@/components/seats/ChangeSeatModal";
+import { AddUnassignedMemberModal } from "@/components/members/AddUnassignedMemberModal";
 
-const FILTERS = ["All", "Active", "Renewal due", "Expired", "Daily Pass"] as const;
+const FILTERS = ["All", "Active", "Renewal due", "Expired", "Unassigned", "Daily Pass"] as const;
 type Filter = (typeof FILTERS)[number];
 
 type DisplayRow =
@@ -44,7 +45,9 @@ export function MembersTable({
   const [filter, setFilter] = useState<Filter>("All");
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [unassigningId, setUnassigningId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [showUnassignedModal, setShowUnassignedModal] = useState(false);
   const [renewTarget, setRenewTarget] = useState<MembershipRow | null>(null);
   const [changeSeatTarget, setChangeSeatTarget] = useState<MembershipRow | null>(null);
 
@@ -66,6 +69,12 @@ export function MembersTable({
     setSendingId(membershipId);
     await sendManualReminder(membershipId);
     setSendingId(null);
+  }
+
+  async function handleUnassign(membershipId: string) {
+    setUnassigningId(membershipId);
+    await unassignSeatFromMembership({ membershipId });
+    setUnassigningId(null);
   }
 
   const filtered = useMemo<DisplayRow[]>(() => {
@@ -92,6 +101,7 @@ export function MembersTable({
       if (row.kind === "daily_pass") return false;
 
       const r = row.data;
+      if (filter === "Unassigned") return r.is_unassigned;
       if (filter === "Active") return r.status === "active" && r.days_until_expiry > 3;
       if (filter === "Renewal due")
         return r.status === "active" && r.days_until_expiry >= 0 && r.days_until_expiry <= 3;
@@ -130,6 +140,14 @@ export function MembersTable({
                 </button>
               ))}
             </div>
+
+            <button
+              onClick={() => setShowUnassignedModal(true)}
+              className="flex shrink-0 items-center gap-1.5 rounded-lg border border-ink-line/20 bg-white/70 px-3 py-2 text-xs font-medium text-ink-text transition hover:border-brass hover:text-brass-soft"
+            >
+              <UserPlus size={13} />
+              Add Unassigned Member
+            </button>
 
             <button
               onClick={() => setShowModal(true)}
@@ -207,10 +225,12 @@ export function MembersTable({
                 const row_ = row.data;
                 const pill = membershipStatusPill(row_);
                 const canChangeSeat = row_.status === "active" && availableSeats.length > 0;
+                const canUnassignSeat = row_.status === "active" && !row_.is_unassigned;
                 const changeSeatDisabledReason =
                   row_.status !== "active"
                     ? "Only active memberships can change seats"
                     : "No unassigned seats available";
+                const seatLabel = row_.is_unassigned ? "No seat assigned" : row_.seat_code;
                 return (
                   <motion.tr
                     key={row_.membership_id}
@@ -232,8 +252,8 @@ export function MembersTable({
                       </p>
                     </td>
                     <td className="py-3">
-                      <span className="rounded-md bg-ink-text/5 px-2 py-1 font-mono text-xs text-ink-text/70">
-                        {row_.seat_code}
+                      <span className={`rounded-md px-2 py-1 font-mono text-xs ${row_.is_unassigned ? "bg-brass/10 text-brass-soft" : "bg-ink-text/5 text-ink-text/70"}`}>
+                        {seatLabel}
                       </span>
                     </td>
                     <td className="py-3 text-ink-text/70">
@@ -273,8 +293,19 @@ export function MembersTable({
                           className="inline-flex items-center gap-1.5 rounded-md border border-ink-line/25 px-2.5 py-1.5 text-xs font-medium text-ink-text/70 transition hover:bg-ink-text/5 disabled:opacity-50"
                         >
                           <ArrowLeftRight size={13} />
-                          Change Seat
+                          {row_.is_unassigned ? "Assign Seat" : "Change Seat"}
                         </button>
+                        {!row_.is_unassigned && (
+                          <button
+                            onClick={() => handleUnassign(row_.membership_id)}
+                            disabled={!canUnassignSeat || unassigningId === row_.membership_id}
+                            title={canUnassignSeat ? "Remove seat and keep membership active" : "Only active memberships can be unassigned"}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-terracotta/30 px-2.5 py-1.5 text-xs font-medium text-terracotta transition hover:bg-terracotta/10 disabled:opacity-50"
+                          >
+                            <LogOut size={13} />
+                            {unassigningId === row_.membership_id ? "Unassigning…" : "Unassign Seat"}
+                          </button>
+                        )}
                         <button
                           onClick={() => handleRemind(row_.membership_id)}
                           disabled={sendingId === row_.membership_id}
@@ -301,6 +332,12 @@ export function MembersTable({
           <AddDailyPassModal
             onClose={() => setShowModal(false)}
             onAdded={() => setShowModal(false)}
+          />
+        )}
+        {showUnassignedModal && (
+          <AddUnassignedMemberModal
+            onClose={() => setShowUnassignedModal(false)}
+            onAdded={() => setShowUnassignedModal(false)}
           />
         )}
         {renewTarget && (

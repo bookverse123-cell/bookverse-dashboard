@@ -10,6 +10,8 @@ const DURATION_OPTIONS = [
   { value: 1, label: "1 Month" },
   { value: 2, label: "2 Months" },
   { value: 3, label: "3 Months" },
+  { value: 4, label: "4 Months" },
+  { value: 6, label: "6 Months" },
 ] as const;
 
 type PaymentMethod = "cash" | "upi" | "card" | "bank_transfer" | "other" | "upi_cash";
@@ -23,7 +25,7 @@ export function RenewMembershipModal({
   onClose: () => void;
   onRenewed: () => void;
 }) {
-  const [duration, setDuration] = useState<1 | 2 | 3>(1);
+  const [duration, setDuration] = useState<1 | 2 | 3 | 4 | 6>(1);
   const [amount, setAmount] = useState(0);
   const [batch, setBatch] = useState<BatchOption>(membership.batch ?? "24x7 Batch");
   const [startFrom, setStartFrom] = useState<"today" | "end_date">("today");
@@ -154,7 +156,7 @@ export function RenewMembershipModal({
               </label>
               <select
                 value={duration}
-                onChange={(e) => setDuration(Number(e.target.value) as 1 | 2 | 3)}
+                onChange={(e) => setDuration(Number(e.target.value) as 1 | 2 | 3 | 4 | 6)}
                 className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
               >
                 {DURATION_OPTIONS.map((opt) => (

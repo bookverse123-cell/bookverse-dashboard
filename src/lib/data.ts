@@ -14,6 +14,7 @@ export async function getSeatStatuses(): Promise<{ seats: SeatStatus[] }> {
   const { data, error } = await supabase
     .from("seat_status")
     .select("*")
+    .eq("is_active", true)
     .order("seat_code");
 
   if (error || !data) return { seats: [] };
@@ -22,6 +23,14 @@ export async function getSeatStatuses(): Promise<{ seats: SeatStatus[] }> {
 
 export async function getKPIs() {
   const { seats } = await getSeatStatuses();
+  const supabase = await createClient();
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const { data: activeMembershipRows } = await supabase
+    .from("memberships")
+    .select("member_id")
+    .eq("status", "active")
+    .gte("end_date", todayStr);
 
   const library = seats.filter((s) => s.zone === "library");
   const lounge = seats.filter((s) => s.zone === "lounge");
@@ -37,7 +46,10 @@ export async function getKPIs() {
     loungeTotal: lounge.length,
     loungeOccupied: occupiedLounge,
     expiringSoon,
-    activeMembers: seats.filter((s) => s.full_name).length,
+    activeMembers:
+      activeMembershipRows?.length
+        ? new Set(activeMembershipRows.map((row) => row.member_id)).size
+        : seats.filter((s) => s.full_name).length,
   };
 }
 
@@ -249,7 +261,7 @@ export async function getMemberships(): Promise<{ data: MembershipRow[] }> {
   today.setHours(0, 0, 0, 0);
 
   const rows: MembershipRow[] = (data as unknown as MembershipJoinRow[])
-    .filter((row) => row.members && row.seats)
+    .filter((row) => row.members)
     .map((row) => {
       const start = new Date(row.start_date);
       const end = new Date(row.end_date);
@@ -263,8 +275,9 @@ export async function getMemberships(): Promise<{ data: MembershipRow[] }> {
         full_name: row.members!.full_name,
         phone: row.members!.phone,
         email: row.members!.email,
-        seat_code: row.seats!.seat_code,
-        zone: row.seats!.zone,
+        seat_code: row.seats?.seat_code ?? "Unassigned",
+        zone: row.seats?.zone ?? null,
+        is_unassigned: !row.seats,
         duration_months,
         amount_paid: Number(row.amount_paid),
         start_date: row.start_date,

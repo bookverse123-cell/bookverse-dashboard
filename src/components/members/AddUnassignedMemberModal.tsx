@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { X, Loader2 } from "lucide-react";
-import type { SeatStatus } from "@/lib/types";
-import { assignSeat } from "@/app/dashboard/seats/actions";
 import { BATCH_OPTIONS, type BatchOption } from "@/lib/batches";
+import { addUnassignedMembership } from "@/app/dashboard/members/actions";
 import { DatePopover } from "@/components/ui/DatePopover";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -20,14 +19,12 @@ const DURATION_OPTIONS = [
 
 type PaymentMethod = "cash" | "upi" | "card" | "bank_transfer" | "other" | "upi_cash";
 
-export function AssignSeatModal({
-  seat,
+export function AddUnassignedMemberModal({
   onClose,
-  onAssigned,
+  onAdded,
 }: {
-  seat: SeatStatus;
   onClose: () => void;
-  onAssigned: () => void;
+  onAdded: () => void;
 }) {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("+91");
@@ -62,8 +59,7 @@ export function AssignSeatModal({
 
     let res;
     try {
-      res = await assignSeat({
-        seatId: seat.seat_id,
+      res = await addUnassignedMembership({
         fullName,
         phone,
         email: email || undefined,
@@ -85,7 +81,7 @@ export function AssignSeatModal({
       return;
     }
 
-    onAssigned();
+    onAdded();
   }
 
   return (
@@ -107,11 +103,9 @@ export function AssignSeatModal({
         <div className="flex items-start justify-between">
           <div>
             <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink-text/40">
-              {seat.seat_code}
+              Unassigned membership
             </span>
-            <h2 className="font-display text-2xl text-ink-text mt-1">
-              Assign seat
-            </h2>
+            <h2 className="font-display text-2xl text-ink-text mt-1">Add member (no fixed seat)</h2>
           </div>
           <button
             onClick={onClose}
@@ -135,155 +129,132 @@ export function AssignSeatModal({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
-                WhatsApp number
-              </label>
+              <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">Phone</label>
               <input
                 required
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="+9198xxxxxxx"
+                placeholder="+91..."
                 className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
               />
             </div>
             <div>
-              <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
-                Email (optional)
-              </label>
+              <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">Email (optional)</label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@email.com"
+                placeholder="name@example.com"
                 className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
-              <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
-                Duration
-              </label>
+              <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">Duration</label>
               <select
                 value={duration}
                 onChange={(e) => setDuration(Number(e.target.value) as 1 | 2 | 3 | 4 | 6)}
                 className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
               >
-                {DURATION_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
+                {DURATION_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
-                Batch
-              </label>
+              <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">Batch</label>
               <select
                 value={batch}
                 onChange={(e) => setBatch(e.target.value as BatchOption)}
                 className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
               >
                 {BATCH_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
+                  <option key={option} value={option}>{option}</option>
                 ))}
               </select>
             </div>
-          </div>
-
-          <div>
-              <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
-                Start date
-              </label>
+            <div>
+              <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">Start date</label>
               <DatePopover value={startDate} onChange={setStartDate} />
             </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
-                Amount paid (₹)
-              </label>
-              <input
-                type="text"
-                inputMode="numeric"
-                required
-                value={amount === 0 ? "" : String(amount)}
-                onChange={(e) => {
-                  const v = e.target.value.replace(/\D/g, "");
-                  setAmount(v ? Number(v) : 0);
-                }}
-                placeholder="0"
-                className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
-                Payment method
-              </label>
-            <select
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-              className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
-            >
-              <option value="cash">Cash</option>
-              <option value="upi">UPI</option>
-              <option value="upi_cash">UPI + Cash</option>
-              <option value="card">Card</option>
-              <option value="bank_transfer">Bank transfer</option>
-              <option value="other">Other</option>
-            </select>
           </div>
 
-          {paymentMethod === "upi_cash" && (
-            <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-3 rounded-lg border border-parchment-line/80 bg-white/50 p-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
-                  Cash amount (₹)
-                </label>
+                <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">Amount paid (₹)</label>
                 <input
                   type="text"
                   inputMode="numeric"
                   required
-                  value={cashAmount === 0 ? "" : String(cashAmount)}
+                  value={amount === 0 ? "" : String(amount)}
                   onChange={(e) => {
                     const v = e.target.value.replace(/\D/g, "");
-                    setCashAmount(v ? Number(v) : 0);
+                    setAmount(v ? Number(v) : 0);
                   }}
                   placeholder="0"
                   className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
                 />
               </div>
               <div>
-                <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
-                  UPI amount (₹)
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  required
-                  value={upiAmount === 0 ? "" : String(upiAmount)}
-                  onChange={(e) => {
-                    const v = e.target.value.replace(/\D/g, "");
-                    setUpiAmount(v ? Number(v) : 0);
-                  }}
-                  placeholder="0"
+                <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">Payment method</label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
                   className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
-                />
+                >
+                  <option value="cash">Cash</option>
+                  <option value="upi">UPI</option>
+                  <option value="upi_cash">UPI + Cash</option>
+                  <option value="card">Card</option>
+                  <option value="bank_transfer">Bank transfer</option>
+                  <option value="other">Other</option>
+                </select>
               </div>
             </div>
-          )}
+
+            {paymentMethod === "upi_cash" && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">Cash amount (₹)</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    required
+                    value={cashAmount === 0 ? "" : String(cashAmount)}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, "");
+                      setCashAmount(v ? Number(v) : 0);
+                    }}
+                    placeholder="0"
+                    className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">UPI amount (₹)</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    required
+                    value={upiAmount === 0 ? "" : String(upiAmount)}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, "");
+                      setUpiAmount(v ? Number(v) : 0);
+                    }}
+                    placeholder="0"
+                    className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div>
-            <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
-              Remarks (optional)
-            </label>
+            <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">Remarks (optional)</label>
             <textarea
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
@@ -306,7 +277,7 @@ export function AssignSeatModal({
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-ink-text px-4 py-3 text-sm font-medium text-parchment transition hover:bg-ink disabled:opacity-50"
           >
             {loading && <Loader2 size={16} className="animate-spin" />}
-            {loading ? "Assigning…" : "Confirm assignment"}
+            {loading ? "Saving…" : "Add unassigned member"}
           </motion.button>
         </form>
       </motion.div>

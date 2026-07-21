@@ -10,7 +10,7 @@ export type AssignSeatInput = {
   fullName: string;
   phone: string;
   email?: string;
-  duration: 1 | 2 | 3;
+  duration: 1 | 2 | 3 | 4 | 6;
   startDate: string;
   amountPaid: number;
   batch: BatchOption;
@@ -201,7 +201,7 @@ export async function endMembership(membershipId: string) {
 export type RenewInput = {
   membershipId: string;
   amount: number;
-  duration: 1 | 2 | 3;
+  duration: 1 | 2 | 3 | 4 | 6;
   startFrom: "today" | "end_date";
   batch: BatchOption;
   paymentMethod: "cash" | "upi" | "card" | "bank_transfer" | "other" | "upi_cash";
@@ -367,6 +367,44 @@ export async function changeSeat(input: ChangeSeatInput) {
           : updateError.message,
     };
   }
+
+  revalidateAll();
+  revalidateMemberPage(current.member_id);
+  return { success: true };
+}
+
+export async function unassignSeatFromMembership(input: { membershipId: string }) {
+  if (!isSupabaseConfigured()) {
+    return { error: "Connect Supabase first — demo data is read-only." };
+  }
+
+  const supabase = await createClient();
+
+  const { data: current, error: membershipError } = await supabase
+    .from("memberships")
+    .select("id, member_id, seat_id, status")
+    .eq("id", input.membershipId)
+    .single();
+
+  if (membershipError || !current) {
+    return { error: "Membership not found" };
+  }
+
+  if (current.status !== "active") {
+    return { error: "Only active memberships can be unassigned" };
+  }
+
+  if (!current.seat_id) {
+    return { success: true };
+  }
+
+  const { error: updateError } = await supabase
+    .from("memberships")
+    .update({ seat_id: null })
+    .eq("id", input.membershipId)
+    .eq("status", "active");
+
+  if (updateError) return { error: updateError.message };
 
   revalidateAll();
   revalidateMemberPage(current.member_id);

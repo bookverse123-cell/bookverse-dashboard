@@ -29,7 +29,8 @@ export type MembershipRow = {
   phone: string;
   email: string | null;
   seat_code: string;
-  zone: Zone;
+  zone: Zone | null;
+  is_unassigned: boolean;
   duration_months: number;
   amount_paid: number;
   start_date: string;
