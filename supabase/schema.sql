@@ -91,7 +91,14 @@ create table if not exists payments (
   membership_id uuid not null references memberships(id) on delete cascade,
   amount numeric(10, 2) not null,
   payment_date date not null default current_date,
-  method text not null default 'cash' check (method in ('cash', 'upi', 'card', 'bank_transfer', 'other')),
+  method text not null default 'cash' check (method in ('cash', 'upi', 'upi_cash', 'card', 'bank_transfer', 'other')),
+  cash_amount numeric(10, 2),
+  upi_amount numeric(10, 2),
+  check (
+    (method = 'upi_cash' and cash_amount is not null and upi_amount is not null and cash_amount > 0 and upi_amount > 0 and (cash_amount + upi_amount = amount))
+    or
+    (method <> 'upi_cash' and cash_amount is null and upi_amount is null)
+  ),
   notes text,
   created_at timestamptz not null default now()
 );

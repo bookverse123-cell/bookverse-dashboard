@@ -49,7 +49,7 @@ export async function getFinanceMonthly() {
     { data: membershipPayments },
     { data: cafeteriaSales },
     { data: cafeteriaExpenses },
-    { data: investmentRows },
+    { data: expenditureRows },
     { data: dailyPassRows },
   ] = await Promise.all([
     supabase.from("payments").select("payment_date, amount").lte("payment_date", todayStr),
@@ -66,7 +66,7 @@ export async function getFinanceMonthly() {
     membershipRevenue: number;
     cafeteriaRevenue: number;
     cafeteriaExpense: number;
-    investment: number;
+    expenditure: number;
   };
 
   const map = new Map<string, Row>();
@@ -79,7 +79,7 @@ export async function getFinanceMonthly() {
         membershipRevenue: 0,
         cafeteriaRevenue: 0,
         cafeteriaExpense: 0,
-        investment: 0,
+        expenditure: 0,
       });
     }
     return map.get(key)!;
@@ -94,8 +94,8 @@ export async function getFinanceMonthly() {
   for (const e of cafeteriaExpenses ?? []) {
     getEntry(e.expense_date).cafeteriaExpense += Number(e.amount);
   }
-  for (const inv of investmentRows ?? []) {
-    getEntry(inv.investment_date).investment += Number(inv.amount);
+  for (const item of expenditureRows ?? []) {
+    getEntry(item.investment_date).expenditure += Number(item.amount);
   }
   for (const p of dailyPassRows ?? []) {
     getEntry(p.date).membershipRevenue += Number(p.amount);
@@ -128,15 +128,22 @@ export async function getDailyPasses(): Promise<{ data: DailyPassRow[] }> {
 
 export async function getExpenseBreakdown() {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("cafeteria_expenses")
-    .select("category, amount");
+  const [{ data: cafeteriaRows, error: cafeteriaError }, { data: expenditureRows, error: expenditureError }] = await Promise.all([
+    supabase.from("cafeteria_expenses").select("category, amount"),
+    supabase.from("investments").select("category, amount"),
+  ]);
 
-  if (error || !data || data.length === 0) return { data: [] };
+  if (cafeteriaError || expenditureError) return { data: [] };
+  if (!cafeteriaRows?.length && !expenditureRows?.length) return { data: [] };
 
   const map = new Map<string, number>();
-  for (const row of data) {
-    map.set(row.category, (map.get(row.category) ?? 0) + Number(row.amount));
+  for (const row of cafeteriaRows ?? []) {
+    const key = `Café · ${row.category}`;
+    map.set(key, (map.get(key) ?? 0) + Number(row.amount));
+  }
+  for (const row of expenditureRows ?? []) {
+    const key = `Expenditure · ${row.category}`;
+    map.set(key, (map.get(key) ?? 0) + Number(row.amount));
   }
 
   return {
@@ -186,7 +193,7 @@ export async function getCafeteriaSales(): Promise<{ data: LedgerRow[] }> {
   };
 }
 
-export async function getInvestments(): Promise<{ data: LedgerRow[] }> {
+export async function getExpenditures(): Promise<{ data: LedgerRow[] }> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("investments")
@@ -304,7 +311,7 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
           batch: "Morning Batch",
           status: "expired",
           remarks: null,
-          payments: [{ amount: 2200, payment_date: "2026-04-15", method: "cash" }],
+          payments: [{ amount: 2200, payment_date: "2026-04-15", method: "cash", cash_amount: null, upi_amount: null }],
         },
         {
           membership_id: "demo-2",
@@ -315,7 +322,7 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
           batch: "Evening Batch",
           status: "expired",
           remarks: "Paid in advance",
-          payments: [{ amount: 4200, payment_date: "2026-05-15", method: "upi" }],
+          payments: [{ amount: 4200, payment_date: "2026-05-15", method: "upi", cash_amount: null, upi_amount: null }],
         },
         {
           membership_id: "demo-3",
@@ -326,7 +333,7 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
           batch: "24x7 Batch",
           status: "active",
           remarks: null,
-          payments: [{ amount: 2300, payment_date: "2026-07-15", method: "cash" }],
+          payments: [{ amount: 2300, payment_date: "2026-07-15", method: "cash", cash_amount: null, upi_amount: null }],
         },
       ],
     };
@@ -342,7 +349,7 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
       .single(),
     supabase
       .from("memberships")
-      .select("id, start_date, end_date, status, amount_paid, batch, remarks, payments(amount, payment_date, method)")
+      .select("id, start_date, end_date, status, amount_paid, batch, remarks, payments(amount, payment_date, method, cash_amount, upi_amount)")
       .eq("member_id", memberId)
       .order("start_date", { ascending: true }),
   ]);
@@ -357,7 +364,7 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
     amount_paid: number;
     batch: import("./batches").BatchOption | null;
     remarks: string | null;
-    payments: { amount: number; payment_date: string; method: string }[];
+    payments: { amount: number; payment_date: string; method: string; cash_amount: number | null; upi_amount: number | null }[];
   }) => {
     const start = new Date(m.start_date);
     const end = new Date(m.end_date);
@@ -377,6 +384,8 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
         amount: Number(p.amount),
         payment_date: p.payment_date,
         method: p.method,
+        cash_amount: p.cash_amount === null ? null : Number(p.cash_amount),
+        upi_amount: p.upi_amount === null ? null : Number(p.upi_amount),
       })),
     };
   });

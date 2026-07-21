@@ -24,11 +24,20 @@ function methodLabel(method: string) {
   const map: Record<string, string> = {
     cash: "Cash",
     upi: "UPI",
+    upi_cash: "UPI + Cash",
     card: "Card",
     bank_transfer: "Bank Transfer",
     other: "Other",
   };
   return map[method] ?? method;
+}
+
+function splitLabel(payment: MemberHistoryEntry["payments"][number]) {
+  if (payment.method !== "upi_cash") return null;
+  const cashAmount = payment.cash_amount ?? 0;
+  const upiAmount = payment.upi_amount ?? 0;
+  if (cashAmount <= 0 && upiAmount <= 0) return null;
+  return `UPI ₹${upiAmount.toLocaleString("en-IN")} + Cash ₹${cashAmount.toLocaleString("en-IN")}`;
 }
 
 export function MemberTimeline({ memberships }: { memberships: MemberHistoryEntry[] }) {
@@ -43,6 +52,7 @@ export function MemberTimeline({ memberships }: { memberships: MemberHistoryEntr
       {memberships.map((m, i) => {
         const isLast = i === memberships.length - 1;
         const primaryPayment = m.payments[0];
+        const primaryPaymentSplit = primaryPayment ? splitLabel(primaryPayment) : null;
         const durationLabel = m.duration_months === 1 ? "1 Month" : `${m.duration_months} Months`;
 
         return (
@@ -74,6 +84,9 @@ export function MemberTimeline({ memberships }: { memberships: MemberHistoryEntr
                 {m.batch && <span className="text-ink-text/60">· {m.batch}</span>}
                 {primaryPayment && (
                   <span className="text-ink-text/40">· {methodLabel(primaryPayment.method)}</span>
+                )}
+                {primaryPaymentSplit && (
+                  <span className="text-ink-text/40">· {primaryPaymentSplit}</span>
                 )}
               </div>
 

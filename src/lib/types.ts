@@ -44,6 +44,8 @@ export type PaymentEntry = {
   amount: number;
   payment_date: string;
   method: string;
+  cash_amount: number | null;
+  upi_amount: number | null;
 };
 
 export type MemberHistoryEntry = {

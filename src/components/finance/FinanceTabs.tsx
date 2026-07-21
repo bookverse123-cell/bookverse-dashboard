@@ -7,13 +7,13 @@ import { ExpenseBreakdownChart } from "./ExpenseBreakdownChart";
 import { LedgerTable } from "./LedgerTable";
 import type { LedgerRow } from "@/lib/types";
 
-const TABS = ["Overview", "Cafeteria", "Investments"] as const;
+const TABS = ["Overview", "Cafeteria", "Expenditures"] as const;
 type Tab = (typeof TABS)[number];
 
 const EXPENSE_CATEGORIES = [
   "Groceries & Snacks", "Utilities", "Maintenance", "Staff Wages", "Marketing", "Other",
 ];
-const INVESTMENT_CATEGORIES = [
+const EXPENDITURE_CATEGORIES = [
   "Furniture", "Equipment", "Renovation", "Branding", "Technology", "Other",
 ];
 
@@ -22,7 +22,7 @@ type MonthRow = {
   membershipRevenue: number;
   cafeteriaRevenue: number;
   cafeteriaExpense: number;
-  investment: number;
+  expenditure: number;
 };
 
 function fmt(n: number) {
@@ -34,13 +34,13 @@ export function FinanceTabs({
   expenseBreakdown,
   expenses,
   sales,
-  investments,
+  expenditures,
 }: {
   monthly: MonthRow[];
   expenseBreakdown: { category: string; amount: number }[];
   expenses: LedgerRow[];
   sales: LedgerRow[];
-  investments: LedgerRow[];
+  expenditures: LedgerRow[];
 }) {
   const [tab, setTab] = useState<Tab>("Overview");
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
@@ -50,12 +50,12 @@ export function FinanceTabs({
     membershipRevenue: monthly.reduce((s, m) => s + m.membershipRevenue, 0),
     cafeteriaRevenue: monthly.reduce((s, m) => s + m.cafeteriaRevenue, 0),
     cafeteriaExpense: monthly.reduce((s, m) => s + m.cafeteriaExpense, 0),
-    investment: monthly.reduce((s, m) => s + m.investment, 0),
+    expenditure: monthly.reduce((s, m) => s + m.expenditure, 0),
   };
 
   const summary = selectedIdx !== null ? monthly[selectedIdx] : allTime;
   const totalIncome = summary.membershipRevenue + summary.cafeteriaRevenue;
-  const net = totalIncome - summary.cafeteriaExpense - summary.investment;
+  const net = totalIncome - summary.cafeteriaExpense - summary.expenditure;
 
   return (
     <div>
@@ -155,10 +155,10 @@ export function FinanceTabs({
               </div>
               <div>
                 <p className="text-xs font-mono uppercase tracking-wider text-ink-text/40">
-                  Investments
+                  Expenditures
                 </p>
                 <p className="mt-1 text-xl font-medium text-brass-soft">
-                  {fmt(summary.investment)}
+                  {fmt(summary.expenditure)}
                 </p>
               </div>
               <div>
@@ -206,29 +206,27 @@ export function FinanceTabs({
         </div>
       )}
 
-      {tab === "Investments" && (
+      {tab === "Expenditures" && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <LedgerTable
-            title="Investments & capital expenditure"
-            description="Furniture, equipment, renovations, and branding"
-            rows={investments}
-            kind="investment"
-            categories={INVESTMENT_CATEGORIES}
+            title="Expenditures"
+            description="Furniture, equipment, renovations, branding, and capital spends"
+            rows={expenditures}
+            kind="expenditure"
+            categories={EXPENDITURE_CATEGORIES}
             amountClassName="text-brass-soft"
             amountPrefix="₹"
           />
           <div className="rounded-2xl border border-ink-line/10 bg-white/60 p-5 sm:p-6">
             <h3 className="font-display text-lg text-ink-text">Why track this?</h3>
             <p className="mt-2 text-sm text-ink-text/60">
-              Investments are excluded from monthly profit so a big furniture
-              purchase doesn&apos;t make a good month look bad — but they&apos;re
-              subtracted in the revenue vs. expenses chart on the Overview tab,
-              so you can see their real impact on cash flow.
+              Expenditures are included in net profit, so you can see real
+              month-by-month profitability after operating costs and capital spend.
             </p>
             <p className="mt-3 text-sm text-ink-text/60">
-              Total invested so far:{" "}
+              Total expenditure so far:{" "}
               <span className="font-medium text-ink-text">
-                ₹{investments.reduce((s, r) => s + r.amount, 0).toLocaleString("en-IN")}
+                ₹{expenditures.reduce((s, r) => s + r.amount, 0).toLocaleString("en-IN")}
               </span>
             </p>
           </div>

@@ -14,7 +14,7 @@ export function ExpenseBreakdownChart({ data }: { data: { category: string; amou
       className="rounded-2xl border border-ink-line/10 bg-white/60 p-5 sm:p-6"
     >
       <h3 className="font-display text-lg text-ink-text">Expenses by category</h3>
-      <p className="mb-4 text-sm text-ink-text/50">Where café & operating costs go</p>
+      <p className="mb-4 text-sm text-ink-text/50">Where café costs and expenditures are going</p>
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} layout="vertical" margin={{ left: 16, right: 16 }}>

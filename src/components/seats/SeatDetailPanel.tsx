@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { X, Phone, Calendar, MessageCircle, UserPlus, LogOut } from "lucide-react";
+import { X, Phone, Calendar, MessageCircle, UserPlus, LogOut, ArrowLeftRight } from "lucide-react";
 import type { SeatStatus } from "@/lib/types";
 import { AssignSeatModal } from "./AssignSeatModal";
 import { endMembership, sendManualReminder } from "@/app/dashboard/seats/actions";
+import { ChangeSeatModal } from "./ChangeSeatModal";
 
 function formatDate(d: string | null) {
   if (!d) return "—";
@@ -18,15 +19,21 @@ function formatDate(d: string | null) {
 
 export function SeatDetailPanel({
   seat,
+  allSeats,
   onClose,
 }: {
   seat: SeatStatus;
+  allSeats: SeatStatus[];
   onClose: () => void;
 }) {
   const [showAssign, setShowAssign] = useState(false);
+  const [showChangeSeat, setShowChangeSeat] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const isOccupied = seat.occupancy_status !== "available";
+  const availableSeats = allSeats
+    .filter((s) => s.is_active && s.occupancy_status === "available")
+    .sort((a, b) => a.seat_code.localeCompare(b.seat_code));
 
   async function handleEndMembership() {
     if (!seat.membership_id) return;
@@ -147,6 +154,15 @@ export function SeatDetailPanel({
               </motion.button>
               <motion.button
                 whileTap={{ scale: 0.98 }}
+                disabled={busy || !seat.membership_id || availableSeats.length === 0}
+                onClick={() => setShowChangeSeat(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-ink-line/20 px-4 py-3 text-sm font-medium text-ink-text transition hover:bg-ink-text/5 disabled:opacity-50"
+              >
+                <ArrowLeftRight size={16} />
+                {availableSeats.length === 0 ? "No unassigned seats available" : "Change seat"}
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.98 }}
                 disabled={busy}
                 onClick={handleEndMembership}
                 className="flex w-full items-center justify-center gap-2 rounded-lg border border-terracotta/30 px-4 py-3 text-sm font-medium text-terracotta transition hover:bg-terracotta/5 disabled:opacity-50"
@@ -179,6 +195,19 @@ export function SeatDetailPanel({
           onClose={() => setShowAssign(false)}
           onAssigned={() => {
             setShowAssign(false);
+            onClose();
+          }}
+        />
+      )}
+
+      {showChangeSeat && seat.membership_id && (
+        <ChangeSeatModal
+          membershipId={seat.membership_id}
+          currentSeatCode={seat.seat_code}
+          availableSeats={availableSeats}
+          onClose={() => setShowChangeSeat(false)}
+          onChanged={() => {
+            setShowChangeSeat(false);
             onClose();
           }}
         />

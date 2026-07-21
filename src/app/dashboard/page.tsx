@@ -21,7 +21,7 @@ export default async function DashboardOverviewPage() {
     ? latestMonth.membershipRevenue +
       latestMonth.cafeteriaRevenue -
       latestMonth.cafeteriaExpense -
-      latestMonth.investment
+      latestMonth.expenditure
     : 0;
 
   return (
@@ -95,7 +95,7 @@ export default async function DashboardOverviewPage() {
                 <p className="font-display text-2xl text-sage">
                   ₹{monthlyProfit.toLocaleString("en-IN")}
                 </p>
-                <p className="text-sm text-ink-text/50">Net profit after expenses &amp; investment</p>
+                <p className="text-sm text-ink-text/50">Net profit after expenses &amp; expenditures</p>
               </div>
             </div>
           </div>

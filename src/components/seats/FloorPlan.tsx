@@ -229,6 +229,7 @@ export function FloorPlan({
         {selectedSeat && (
           <SeatDetailPanel
             seat={selectedSeat}
+            allSeats={seats}
             onClose={() => setSelectedId(null)}
           />
         )}

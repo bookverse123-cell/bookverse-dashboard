@@ -7,25 +7,25 @@ import type { LedgerRow } from "@/lib/types";
 import {
   addCafeteriaExpense,
   addCafeteriaSale,
-  addInvestment,
+  addExpenditure,
   deleteLedgerRow,
   type LedgerInput,
 } from "@/app/dashboard/finance/actions";
 
-type Kind = "expense" | "sale" | "investment";
+type Kind = "expense" | "sale" | "expenditure";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 const ACTIONS: Record<Kind, (input: LedgerInput) => Promise<{ error?: string; success?: boolean }>> = {
   expense: addCafeteriaExpense,
   sale: (input) => addCafeteriaSale(input),
-  investment: addInvestment,
+  expenditure: addExpenditure,
 };
 
 const TABLES: Record<Kind, "cafeteria_expenses" | "cafeteria_sales" | "investments"> = {
   expense: "cafeteria_expenses",
   sale: "cafeteria_sales",
-  investment: "investments",
+  expenditure: "investments",
 };
 
 export function LedgerTable({

@@ -7,16 +7,16 @@ import {
   getExpenseBreakdown,
   getCafeteriaExpenses,
   getCafeteriaSales,
-  getInvestments,
+  getExpenditures,
 } from "@/lib/data";
 
 export default async function FinancePage() {
-  const [monthly, breakdown, expenses, sales, investments] = await Promise.all([
+  const [monthly, breakdown, expenses, sales, expenditures] = await Promise.all([
     getFinanceMonthly(),
     getExpenseBreakdown(),
     getCafeteriaExpenses(),
     getCafeteriaSales(),
-    getInvestments(),
+    getExpenditures(),
   ]);
 
   const totalRevenue = monthly.data.reduce(
@@ -24,13 +24,13 @@ export default async function FinancePage() {
     0
   );
   const totalExpenses = monthly.data.reduce((sum, m) => sum + m.cafeteriaExpense, 0);
-  const totalInvestment = monthly.data.reduce((sum, m) => sum + m.investment, 0);
-  const profit = totalRevenue - totalExpenses - totalInvestment;
+  const totalExpenditure = monthly.data.reduce((sum, m) => sum + m.expenditure, 0);
+  const profit = totalRevenue - totalExpenses - totalExpenditure;
   const margin = totalRevenue > 0 ? Math.round((profit / totalRevenue) * 100) : 0;
 
   return (
     <>
-      <Topbar title="Finance" subtitle="All-time revenue, expenses, and investments" />
+      <Topbar title="Finance" subtitle="All-time revenue, expenses, and expenditures" />
       <div className="space-y-6 px-6 py-6 lg:px-10">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <KPICard
@@ -68,7 +68,7 @@ export default async function FinancePage() {
           expenseBreakdown={breakdown.data}
           expenses={expenses.data}
           sales={sales.data}
-          investments={investments.data}
+          expenditures={expenditures.data}
         />
       </div>
     </>

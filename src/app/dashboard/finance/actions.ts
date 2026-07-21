@@ -46,7 +46,7 @@ export async function addCafeteriaSale(input: Omit<LedgerInput, "category">) {
   return { success: true };
 }
 
-export async function addInvestment(input: LedgerInput) {
+export async function addExpenditure(input: LedgerInput) {
   if (!isSupabaseConfigured()) return { error: DEMO_ERROR };
 
   const supabase = await createClient();

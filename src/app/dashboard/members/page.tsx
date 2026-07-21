@@ -2,12 +2,13 @@ import { Users, UserCheck, AlertTriangle, IndianRupee } from "lucide-react";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { MembersTable } from "@/components/members/MembersTable";
-import { getMemberships, getDailyPasses } from "@/lib/data";
+import { getMemberships, getDailyPasses, getSeatStatuses } from "@/lib/data";
 
 export default async function MembersPage() {
-  const [{ data: rows }, { data: dailyPasses }] = await Promise.all([
+  const [{ data: rows }, { data: dailyPasses }, { seats }] = await Promise.all([
     getMemberships(),
     getDailyPasses(),
+    getSeatStatuses(),
   ]);
 
   function isNewerMembership(a: (typeof rows)[number], b: (typeof rows)[number]) {
@@ -61,7 +62,7 @@ export default async function MembersPage() {
           />
         </div>
 
-        <MembersTable rows={latestRows} dailyPasses={dailyPasses} />
+        <MembersTable rows={latestRows} dailyPasses={dailyPasses} allSeats={seats} />
       </div>
     </>
   );

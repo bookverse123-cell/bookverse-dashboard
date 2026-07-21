@@ -14,9 +14,65 @@ export type AssignSeatInput = {
   startDate: string;
   amountPaid: number;
   batch: BatchOption;
-  paymentMethod: string;
+  paymentMethod: "cash" | "upi" | "card" | "bank_transfer" | "other" | "upi_cash";
+  cashAmount?: number;
+  upiAmount?: number;
   remarks?: string;
 };
+
+const PAYMENT_METHODS = new Set(["cash", "upi", "card", "bank_transfer", "other", "upi_cash"]);
+
+function normalizePaymentDetails(input: {
+  amount: number;
+  paymentMethod: string;
+  cashAmount?: number;
+  upiAmount?: number;
+}) {
+  if (!PAYMENT_METHODS.has(input.paymentMethod)) {
+    return { error: "Invalid payment method" };
+  }
+
+  if (!Number.isFinite(input.amount) || input.amount <= 0) {
+    return { error: "Amount paid must be greater than zero" };
+  }
+
+  if (input.paymentMethod !== "upi_cash") {
+    return {
+      payment: {
+        amount: input.amount,
+        method: input.paymentMethod,
+        cash_amount: null as number | null,
+        upi_amount: null as number | null,
+      },
+    };
+  }
+
+  const cashAmount = Number(input.cashAmount ?? 0);
+  const upiAmount = Number(input.upiAmount ?? 0);
+
+  if (!Number.isFinite(cashAmount) || !Number.isFinite(upiAmount)) {
+    return { error: "Enter valid split amounts for UPI and cash" };
+  }
+
+  if (cashAmount <= 0 || upiAmount <= 0) {
+    return { error: "UPI + Cash requires both cash and UPI amounts" };
+  }
+
+  const total = Number((cashAmount + upiAmount).toFixed(2));
+  const expected = Number(input.amount.toFixed(2));
+  if (total !== expected) {
+    return { error: "Cash + UPI must exactly match amount paid" };
+  }
+
+  return {
+    payment: {
+      amount: expected,
+      method: input.paymentMethod,
+      cash_amount: cashAmount,
+      upi_amount: upiAmount,
+    },
+  };
+}
 
 function revalidateAll() {
   revalidatePath("/dashboard/seats");
@@ -39,6 +95,14 @@ export async function assignSeat(input: AssignSeatInput) {
   if (!isBatchOption(input.batch)) {
     return { error: "Invalid batch selected" };
   }
+
+  const paymentDetails = normalizePaymentDetails({
+    amount: input.amountPaid,
+    paymentMethod: input.paymentMethod,
+    cashAmount: input.cashAmount,
+    upiAmount: input.upiAmount,
+  });
+  if (paymentDetails.error) return { error: paymentDetails.error };
 
   const supabase = await createClient();
 
@@ -100,9 +164,11 @@ export async function assignSeat(input: AssignSeatInput) {
 
   const { error: paymentError } = await supabase.from("payments").insert({
     membership_id: membership.id,
-    amount: input.amountPaid,
+    amount: paymentDetails.payment.amount,
     payment_date: input.startDate,
-    method: input.paymentMethod,
+    method: paymentDetails.payment.method,
+    cash_amount: paymentDetails.payment.cash_amount,
+    upi_amount: paymentDetails.payment.upi_amount,
   });
   if (paymentError) return { error: paymentError.message };
 
@@ -136,7 +202,9 @@ export type RenewInput = {
   duration: 1 | 2 | 3;
   startFrom: "today" | "end_date";
   batch: BatchOption;
-  paymentMethod: string;
+  paymentMethod: "cash" | "upi" | "card" | "bank_transfer" | "other" | "upi_cash";
+  cashAmount?: number;
+  upiAmount?: number;
   remarks?: string;
 };
 
@@ -148,6 +216,14 @@ export async function renewMembership(input: RenewInput) {
   if (!isBatchOption(input.batch)) {
     return { error: "Invalid batch selected" };
   }
+
+  const paymentDetails = normalizePaymentDetails({
+    amount: input.amount,
+    paymentMethod: input.paymentMethod,
+    cashAmount: input.cashAmount,
+    upiAmount: input.upiAmount,
+  });
+  if (paymentDetails.error) return { error: paymentDetails.error };
 
   const supabase = await createClient();
 
@@ -205,9 +281,11 @@ export async function renewMembership(input: RenewInput) {
 
   const { error: paymentError } = await supabase.from("payments").insert({
     membership_id: newMembership.id,
-    amount: input.amount,
+    amount: paymentDetails.payment.amount,
     payment_date: today,
-    method: input.paymentMethod,
+    method: paymentDetails.payment.method,
+    cash_amount: paymentDetails.payment.cash_amount,
+    upi_amount: paymentDetails.payment.upi_amount,
   });
   if (paymentError) {
     await supabase.from("memberships").delete().eq("id", newMembership.id);
@@ -216,6 +294,74 @@ export async function renewMembership(input: RenewInput) {
       .update({ status: current.status })
       .eq("id", input.membershipId);
     return { error: paymentError.message };
+  }
+
+  revalidateAll();
+  revalidateMemberPage(current.member_id);
+  return { success: true };
+}
+
+export type ChangeSeatInput = {
+  membershipId: string;
+  targetSeatId: string;
+};
+
+export async function changeSeat(input: ChangeSeatInput) {
+  if (!isSupabaseConfigured()) {
+    return { error: "Connect Supabase first — demo data is read-only." };
+  }
+
+  const supabase = await createClient();
+
+  const { data: current, error: membershipError } = await supabase
+    .from("memberships")
+    .select("id, member_id, seat_id, status")
+    .eq("id", input.membershipId)
+    .single();
+
+  if (membershipError || !current) {
+    return { error: "Membership not found" };
+  }
+
+  if (current.status !== "active") {
+    return { error: "Only active memberships can change seats" };
+  }
+
+  if (current.seat_id === input.targetSeatId) {
+    return { success: true };
+  }
+
+  const { data: targetSeat, error: seatError } = await supabase
+    .from("seat_status")
+    .select("seat_id, is_active, occupancy_status")
+    .eq("seat_id", input.targetSeatId)
+    .maybeSingle();
+
+  if (seatError || !targetSeat) {
+    return { error: "Target seat not found" };
+  }
+
+  if (!targetSeat.is_active) {
+    return { error: "Target seat is not active" };
+  }
+
+  if (targetSeat.occupancy_status !== "available") {
+    return { error: "Target seat is already assigned" };
+  }
+
+  const { error: updateError } = await supabase
+    .from("memberships")
+    .update({ seat_id: input.targetSeatId })
+    .eq("id", input.membershipId)
+    .eq("status", "active");
+
+  if (updateError) {
+    return {
+      error:
+        updateError.code === "23505"
+          ? "Target seat was assigned just now. Pick another seat."
+          : updateError.message,
+    };
   }
 
   revalidateAll();

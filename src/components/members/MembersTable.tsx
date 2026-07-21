@@ -2,13 +2,14 @@
 
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, MessageCircle, Phone, Ticket, Trash2, RefreshCw, Eye } from "lucide-react";
-import type { MembershipRow, DailyPassRow } from "@/lib/types";
+import { Search, MessageCircle, Phone, Ticket, Trash2, RefreshCw, Eye, ArrowLeftRight } from "lucide-react";
+import type { MembershipRow, DailyPassRow, SeatStatus } from "@/lib/types";
 import { sendManualReminder } from "@/app/dashboard/seats/actions";
 import { deleteDailyPass } from "@/app/dashboard/members/actions";
 import Link from "next/link";
 import { AddDailyPassModal } from "@/components/members/AddDailyPassModal";
 import { RenewMembershipModal } from "@/components/members/RenewMembershipModal";
+import { ChangeSeatModal } from "@/components/seats/ChangeSeatModal";
 
 const FILTERS = ["All", "Active", "Renewal due", "Expired", "Daily Pass"] as const;
 type Filter = (typeof FILTERS)[number];
@@ -33,9 +34,11 @@ function membershipStatusPill(row: MembershipRow) {
 export function MembersTable({
   rows,
   dailyPasses,
+  allSeats,
 }: {
   rows: MembershipRow[];
   dailyPasses: DailyPassRow[];
+  allSeats: SeatStatus[];
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("All");
@@ -43,6 +46,15 @@ export function MembersTable({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [renewTarget, setRenewTarget] = useState<MembershipRow | null>(null);
+  const [changeSeatTarget, setChangeSeatTarget] = useState<MembershipRow | null>(null);
+
+  const availableSeats = useMemo(
+    () =>
+      allSeats
+        .filter((seat) => seat.is_active && seat.occupancy_status === "available")
+        .sort((a, b) => a.seat_code.localeCompare(b.seat_code)),
+    [allSeats],
+  );
 
   async function handleDeletePass(id: string) {
     setDeletingId(id);
@@ -194,6 +206,11 @@ export function MembersTable({
 
                 const row_ = row.data;
                 const pill = membershipStatusPill(row_);
+                const canChangeSeat = row_.status === "active" && availableSeats.length > 0;
+                const changeSeatDisabledReason =
+                  row_.status !== "active"
+                    ? "Only active memberships can change seats"
+                    : "No unassigned seats available";
                 return (
                   <motion.tr
                     key={row_.membership_id}
@@ -250,6 +267,15 @@ export function MembersTable({
                           Renew
                         </button>
                         <button
+                          onClick={() => setChangeSeatTarget(row_)}
+                          disabled={!canChangeSeat}
+                          title={canChangeSeat ? "Change this member's seat" : changeSeatDisabledReason}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-ink-line/25 px-2.5 py-1.5 text-xs font-medium text-ink-text/70 transition hover:bg-ink-text/5 disabled:opacity-50"
+                        >
+                          <ArrowLeftRight size={13} />
+                          Change Seat
+                        </button>
+                        <button
                           onClick={() => handleRemind(row_.membership_id)}
                           disabled={sendingId === row_.membership_id}
                           className="inline-flex items-center gap-1.5 rounded-md border border-sage/30 px-2.5 py-1.5 text-xs font-medium text-sage transition hover:bg-sage/10 disabled:opacity-50"
@@ -282,6 +308,15 @@ export function MembersTable({
             membership={renewTarget}
             onClose={() => setRenewTarget(null)}
             onRenewed={() => setRenewTarget(null)}
+          />
+        )}
+        {changeSeatTarget && (
+          <ChangeSeatModal
+            membershipId={changeSeatTarget.membership_id}
+            currentSeatCode={changeSeatTarget.seat_code}
+            availableSeats={availableSeats}
+            onClose={() => setChangeSeatTarget(null)}
+            onChanged={() => setChangeSeatTarget(null)}
           />
         )}
       </AnimatePresence>

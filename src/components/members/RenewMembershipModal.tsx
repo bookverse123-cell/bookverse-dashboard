@@ -12,6 +12,8 @@ const DURATION_OPTIONS = [
   { value: 3, label: "3 Months" },
 ] as const;
 
+type PaymentMethod = "cash" | "upi" | "card" | "bank_transfer" | "other" | "upi_cash";
+
 export function RenewMembershipModal({
   membership,
   onClose,
@@ -25,7 +27,9 @@ export function RenewMembershipModal({
   const [amount, setAmount] = useState(0);
   const [batch, setBatch] = useState<BatchOption>(membership.batch ?? "24x7 Batch");
   const [startFrom, setStartFrom] = useState<"today" | "end_date">("today");
-  const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
+  const [cashAmount, setCashAmount] = useState(0);
+  const [upiAmount, setUpiAmount] = useState(0);
   const [remarks, setRemarks] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +41,18 @@ export function RenewMembershipModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (paymentMethod === "upi_cash") {
+      if (cashAmount <= 0 || upiAmount <= 0) {
+        setError("Enter both cash and UPI amounts");
+        return;
+      }
+      if (cashAmount + upiAmount !== amount) {
+        setError("Cash + UPI must match amount paid");
+        return;
+      }
+    }
+
     setLoading(true);
     setError(null);
 
@@ -49,6 +65,8 @@ export function RenewMembershipModal({
         startFrom,
         batch,
         paymentMethod,
+        cashAmount: paymentMethod === "upi_cash" ? cashAmount : undefined,
+        upiAmount: paymentMethod === "upi_cash" ? upiAmount : undefined,
         remarks: remarks || undefined,
       });
     } finally {
@@ -188,16 +206,56 @@ export function RenewMembershipModal({
             </label>
             <select
               value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
+              onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
               className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
             >
               <option value="cash">Cash</option>
               <option value="upi">UPI</option>
+              <option value="upi_cash">UPI + Cash</option>
               <option value="card">Card</option>
               <option value="bank_transfer">Bank transfer</option>
               <option value="other">Other</option>
             </select>
           </div>
+
+          {paymentMethod === "upi_cash" && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
+                  Cash amount (₹)
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  required
+                  value={cashAmount === 0 ? "" : String(cashAmount)}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, "");
+                    setCashAmount(v ? Number(v) : 0);
+                  }}
+                  placeholder="0"
+                  className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
+                  UPI amount (₹)
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  required
+                  value={upiAmount === 0 ? "" : String(upiAmount)}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, "");
+                    setUpiAmount(v ? Number(v) : 0);
+                  }}
+                  placeholder="0"
+                  className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
+                />
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">

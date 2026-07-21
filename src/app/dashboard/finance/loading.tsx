@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 export default function FinanceLoading() {
   return (
     <>
-      <Topbar title="Finance" subtitle="All-time revenue, expenses, and investments" />
+      <Topbar title="Finance" subtitle="All-time revenue, expenses, and expenditures" />
       <div className="space-y-6 px-6 py-6 lg:px-10">
 
         {/* 4 KPI cards */}

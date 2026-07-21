@@ -18,7 +18,7 @@ type MonthRow = {
   membershipRevenue: number;
   cafeteriaRevenue: number;
   cafeteriaExpense: number;
-  investment: number;
+  expenditure: number;
 };
 
 export function RevenueChart({ data }: { data: MonthRow[] }) {
@@ -26,8 +26,8 @@ export function RevenueChart({ data }: { data: MonthRow[] }) {
     month: d.month,
     Revenue: d.membershipRevenue + d.cafeteriaRevenue,
     Expenses: d.cafeteriaExpense,
-    Investment: d.investment,
-    Profit: d.membershipRevenue + d.cafeteriaRevenue - d.cafeteriaExpense - d.investment,
+    Expenditures: d.expenditure,
+    Profit: d.membershipRevenue + d.cafeteriaRevenue - d.cafeteriaExpense - d.expenditure,
   }));
 
   return (
@@ -40,7 +40,7 @@ export function RevenueChart({ data }: { data: MonthRow[] }) {
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h3 className="font-display text-lg text-ink-text">Revenue vs. expenses</h3>
-          <p className="text-sm text-ink-text/50">Membership + café income against operating costs and investment</p>
+          <p className="text-sm text-ink-text/50">Membership + café income against operating costs and expenditures</p>
         </div>
       </div>
       <div className="h-72 w-full">
