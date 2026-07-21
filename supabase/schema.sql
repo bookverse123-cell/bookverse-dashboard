@@ -209,15 +209,55 @@ create table if not exists locker_allocations (
   member_id uuid not null references members(id) on delete cascade,
   assigned_at date not null default current_date,
   price numeric(10, 2) not null default 0,
+  payment_method text not null default 'cash' check (payment_method in ('cash', 'upi', 'cash_upi')),
+  cash_amount numeric(10, 2),
+  upi_amount numeric(10, 2),
   released_at date,
   status text not null default 'active' check (status in ('active', 'released')),
   notes text,
   created_at timestamptz not null default now(),
-  check ((status = 'active' and released_at is null) or (status = 'released'))
+  check ((status = 'active' and released_at is null) or (status = 'released')),
+  check (
+    (payment_method = 'cash_upi' and cash_amount is not null and upi_amount is not null and cash_amount > 0 and upi_amount > 0 and (cash_amount + upi_amount = price))
+    or
+    (payment_method <> 'cash_upi' and cash_amount is null and upi_amount is null)
+  )
 );
 
 alter table locker_allocations
   add column if not exists price numeric(10, 2) not null default 0;
+
+alter table locker_allocations
+  add column if not exists payment_method text not null default 'cash';
+
+alter table locker_allocations
+  add column if not exists cash_amount numeric(10, 2);
+
+alter table locker_allocations
+  add column if not exists upi_amount numeric(10, 2);
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'locker_allocations_payment_method_allowed'
+  ) then
+    alter table locker_allocations
+      add constraint locker_allocations_payment_method_allowed
+      check (payment_method in ('cash', 'upi', 'cash_upi'));
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint where conname = 'locker_allocations_split_amount_check'
+  ) then
+    alter table locker_allocations
+      add constraint locker_allocations_split_amount_check
+      check (
+        (payment_method = 'cash_upi' and cash_amount is not null and upi_amount is not null and cash_amount > 0 and upi_amount > 0 and (cash_amount + upi_amount = price))
+        or
+        (payment_method <> 'cash_upi' and cash_amount is null and upi_amount is null)
+      );
+  end if;
+end $$;
 
 create unique index if not exists uniq_active_locker_allocation
   on locker_allocations(locker_id)
@@ -322,6 +362,9 @@ select
   m.full_name,
   m.phone,
   la.assigned_at,
+  la.payment_method,
+  la.cash_amount,
+  la.upi_amount,
   la.price,
   la.notes,
   la.status as allocation_status

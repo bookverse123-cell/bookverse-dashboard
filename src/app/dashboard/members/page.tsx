@@ -49,8 +49,9 @@ export default async function MembersPage() {
     <>
       <Topbar title="Members" subtitle="Latest membership status for each member" />
       <div className="space-y-6 px-6 py-6 lg:px-10">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <KPICard icon={<Users size={18} />} label="Total members" value={`${latestRows.length + dailyPasses.length}`} accent="ink" />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <KPICard icon={<Users size={18} />} label="Total members" value={`${latestRows.length}`} accent="ink" />
+          <KPICard icon={<Users size={18} />} label="Daily pass visitors" value={`${dailyPasses.length}`} accent="brass" delay={0.03} />
           <KPICard icon={<UserCheck size={18} />} label="Active memberships" value={`${active}`} accent="sage" delay={0.05} />
           <KPICard icon={<AlertTriangle size={18} />} label="Renewal due / overdue" value={`${renewalDue + overdue}`} accent="brass" delay={0.1} />
           <KPICard

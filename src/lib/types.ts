@@ -99,5 +99,8 @@ export type LockerStatus = {
   assigned_at: string | null;
   allocation_status: "active" | "released" | null;
   price: number | null;
+  payment_method: "cash" | "upi" | "cash_upi" | null;
+  cash_amount: number | null;
+  upi_amount: number | null;
   notes: string | null;
 };

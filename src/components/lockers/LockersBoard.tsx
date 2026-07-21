@@ -12,6 +12,7 @@ type MemberOption = {
   phone: string;
   seat_code: string;
 };
+type LockerPaymentMethod = "cash" | "upi" | "cash_upi";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -22,6 +23,9 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
   const [showMemberOptions, setShowMemberOptions] = useState(false);
   const [assignedAt, setAssignedAt] = useState(todayStr());
   const [price, setPrice] = useState<number | "">("");
+  const [paymentMethod, setPaymentMethod] = useState<LockerPaymentMethod>("cash");
+  const [cashAmount, setCashAmount] = useState<number | "">("");
+  const [upiAmount, setUpiAmount] = useState<number | "">("");
   const [notes, setNotes] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -60,6 +64,9 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
       memberId,
       assignedAt,
       price: price === "" ? 0 : Number(price),
+      paymentMethod,
+      cashAmount: paymentMethod === "cash_upi" ? Number(cashAmount) : undefined,
+      upiAmount: paymentMethod === "cash_upi" ? Number(upiAmount) : undefined,
       notes: notes.trim() || undefined,
     });
     setSaving(false);
@@ -71,6 +78,8 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
 
     setSelected(null);
     setNotes("");
+    setCashAmount("");
+    setUpiAmount("");
   }
 
   async function handleUpdate() {
@@ -87,6 +96,9 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
       memberId,
       assignedAt,
       price: price === "" ? 0 : Number(price),
+      paymentMethod,
+      cashAmount: paymentMethod === "cash_upi" ? Number(cashAmount) : undefined,
+      upiAmount: paymentMethod === "cash_upi" ? Number(upiAmount) : undefined,
       notes: notes.trim() || undefined,
     });
     setSaving(false);
@@ -100,6 +112,16 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
     setIsEditing(false);
     setNotes("");
     setPrice("");
+    setCashAmount("");
+    setUpiAmount("");
+  }
+
+  function paymentMethodLabel(locker: LockerStatus) {
+    if (!locker.payment_method) return "Cash";
+    if (locker.payment_method === "cash_upi") {
+      return `Cash + UPI (₹${Number(locker.cash_amount ?? 0).toLocaleString("en-IN")} + ₹${Number(locker.upi_amount ?? 0).toLocaleString("en-IN")})`;
+    }
+    return locker.payment_method === "upi" ? "UPI" : "Cash";
   }
 
   async function handleRelease() {
@@ -144,12 +166,18 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
                   setIsEditing(false);
                   setAssignedAt(locker.assigned_at ?? todayStr());
                   setPrice(locker.price ?? "");
+                  setPaymentMethod(locker.payment_method ?? "cash");
+                  setCashAmount(locker.cash_amount ?? "");
+                  setUpiAmount(locker.upi_amount ?? "");
                   setNotes(locker.notes ?? "");
                   if (locker.member_id) setMemberId(locker.member_id);
                   if (!isAllocated && members.length) {
                     setMemberId(members[0].member_id);
                     setMemberQuery("");
                     setPrice("");
+                    setPaymentMethod("cash");
+                    setCashAmount("");
+                    setUpiAmount("");
                     setNotes("");
                     setAssignedAt(todayStr());
                   }
@@ -210,6 +238,9 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
                     </p>
                     <p className="mt-1 text-xs text-ink-text/45">
                       Price: ₹{Number(selected.price ?? 0).toLocaleString("en-IN")}
+                    </p>
+                    <p className="mt-1 text-xs text-ink-text/45">
+                      Payment: {paymentMethodLabel(selected)}
                     </p>
                     {selected.notes && (
                       <p className="mt-1 text-xs text-ink-text/45">Note: {selected.notes}</p>
@@ -314,6 +345,46 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
                       className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
                     />
                   </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-mono uppercase tracking-wider text-ink-text/50">Payment method</label>
+                    <select
+                      value={paymentMethod}
+                      onChange={(event) => setPaymentMethod(event.target.value as LockerPaymentMethod)}
+                      className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
+                    >
+                      <option value="cash">Cash</option>
+                      <option value="upi">UPI</option>
+                      <option value="cash_upi">Cash + UPI</option>
+                    </select>
+                  </div>
+
+                  {paymentMethod === "cash_upi" && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1.5 block text-xs font-mono uppercase tracking-wider text-ink-text/50">Cash amount (₹)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={cashAmount}
+                          onChange={(event) => setCashAmount(event.target.value === "" ? "" : Number(event.target.value))}
+                          className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-xs font-mono uppercase tracking-wider text-ink-text/50">UPI amount (₹)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={upiAmount}
+                          onChange={(event) => setUpiAmount(event.target.value === "" ? "" : Number(event.target.value))}
+                          className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   <div>
                     <label className="mb-1.5 block text-xs font-mono uppercase tracking-wider text-ink-text/50">Notes (optional)</label>

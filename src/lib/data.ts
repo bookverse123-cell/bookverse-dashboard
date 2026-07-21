@@ -35,6 +35,9 @@ export async function getLockerStatuses(): Promise<{ lockers: LockerStatus[] }> 
         assigned_at: null,
         allocation_status: null,
         price: null,
+        payment_method: null,
+        cash_amount: null,
+        upi_amount: null,
         notes: null,
       })),
     };
