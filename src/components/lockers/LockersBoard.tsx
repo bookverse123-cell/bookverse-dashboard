@@ -13,6 +13,7 @@ type MemberOption = {
   seat_code: string;
 };
 type LockerPaymentMethod = "cash" | "upi" | "cash_upi";
+type LockerDuration = 1 | 3;
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -22,6 +23,7 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
   const [memberQuery, setMemberQuery] = useState("");
   const [showMemberOptions, setShowMemberOptions] = useState(false);
   const [assignedAt, setAssignedAt] = useState(todayStr());
+  const [durationMonths, setDurationMonths] = useState<LockerDuration>(1);
   const [price, setPrice] = useState<number | "">("");
   const [paymentMethod, setPaymentMethod] = useState<LockerPaymentMethod>("cash");
   const [cashAmount, setCashAmount] = useState<number | "">("");
@@ -63,6 +65,7 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
       lockerId: selected.locker_id,
       memberId,
       assignedAt,
+      durationMonths,
       price: price === "" ? 0 : Number(price),
       paymentMethod,
       cashAmount: paymentMethod === "cash_upi" ? Number(cashAmount) : undefined,
@@ -95,6 +98,7 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
       allocationId: selected.allocation_id,
       memberId,
       assignedAt,
+      durationMonths,
       price: price === "" ? 0 : Number(price),
       paymentMethod,
       cashAmount: paymentMethod === "cash_upi" ? Number(cashAmount) : undefined,
@@ -165,6 +169,7 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
                   setError(null);
                   setIsEditing(false);
                   setAssignedAt(locker.assigned_at ?? todayStr());
+                  setDurationMonths(locker.duration_months ?? 1);
                   setPrice(locker.price ?? "");
                   setPaymentMethod(locker.payment_method ?? "cash");
                   setCashAmount(locker.cash_amount ?? "");
@@ -175,6 +180,7 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
                     setMemberId(members[0].member_id);
                     setMemberQuery("");
                     setPrice("");
+                    setDurationMonths(1);
                     setPaymentMethod("cash");
                     setCashAmount("");
                     setUpiAmount("");
@@ -235,6 +241,10 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
                     <p className="text-xs text-ink-text/55">{selected.phone}</p>
                     <p className="mt-2 text-xs text-ink-text/45">
                       Allocated on {selected.assigned_at ? new Date(selected.assigned_at).toLocaleDateString("en-IN") : "—"}
+                    </p>
+                    <p className="mt-1 text-xs text-ink-text/45">
+                      Validity: {selected.duration_months ?? 1} month{(selected.duration_months ?? 1) > 1 ? "s" : ""}
+                      {selected.valid_till ? ` · till ${new Date(selected.valid_till).toLocaleDateString("en-IN")}` : ""}
                     </p>
                     <p className="mt-1 text-xs text-ink-text/45">
                       Price: ₹{Number(selected.price ?? 0).toLocaleString("en-IN")}
@@ -332,6 +342,18 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
                       onChange={(event) => setAssignedAt(event.target.value)}
                       className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
                     />
+                  </div>
+
+                  <div>
+                    <label className="mb-1.5 block text-xs font-mono uppercase tracking-wider text-ink-text/50">Validity</label>
+                    <select
+                      value={durationMonths}
+                      onChange={(event) => setDurationMonths(Number(event.target.value) as LockerDuration)}
+                      className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
+                    >
+                      <option value={1}>1 Month</option>
+                      <option value={3}>3 Months</option>
+                    </select>
                   </div>
 
                   <div>

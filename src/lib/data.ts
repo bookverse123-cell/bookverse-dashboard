@@ -33,6 +33,8 @@ export async function getLockerStatuses(): Promise<{ lockers: LockerStatus[] }> 
         full_name: null,
         phone: null,
         assigned_at: null,
+        duration_months: null,
+        valid_till: null,
         allocation_status: null,
         price: null,
         payment_method: null,

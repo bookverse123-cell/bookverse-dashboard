@@ -97,6 +97,8 @@ export type LockerStatus = {
   full_name: string | null;
   phone: string | null;
   assigned_at: string | null;
+  duration_months: 1 | 3 | null;
+  valid_till: string | null;
   allocation_status: "active" | "released" | null;
   price: number | null;
   payment_method: "cash" | "upi" | "cash_upi" | null;

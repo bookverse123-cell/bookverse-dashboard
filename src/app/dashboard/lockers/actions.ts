@@ -6,6 +6,15 @@ import { revalidatePath } from "next/cache";
 
 const DEMO_ERROR = "Connect Supabase first (see README) — demo data is read-only.";
 type LockerPaymentMethod = "cash" | "upi" | "cash_upi";
+type LockerDuration = 1 | 3;
+
+function computeValidTill(startDate: string, durationMonths: LockerDuration) {
+  const [year, month, day] = startDate.split("-").map(Number);
+  const targetMonth = month - 1 + durationMonths;
+  const lastDayOfTarget = new Date(Date.UTC(year, targetMonth + 1, 0)).getUTCDate();
+  const clampedDay = Math.min(day, lastDayOfTarget);
+  return new Date(Date.UTC(year, targetMonth, clampedDay)).toISOString().slice(0, 10);
+}
 
 function normalizeLockerPayment(input: {
   price: number;
@@ -65,6 +74,7 @@ export async function allocateLocker(input: {
   lockerId: string;
   memberId: string;
   assignedAt: string;
+  durationMonths: LockerDuration;
   price: number;
   paymentMethod: LockerPaymentMethod;
   cashAmount?: number;
@@ -72,6 +82,9 @@ export async function allocateLocker(input: {
   notes?: string;
 }) {
   if (!isSupabaseConfigured()) return { error: DEMO_ERROR };
+  if (![1, 3].includes(input.durationMonths)) {
+    return { error: "Locker validity must be 1 month or 3 months" };
+  }
   const paymentDetails = normalizeLockerPayment({
     price: input.price,
     paymentMethod: input.paymentMethod,
@@ -101,10 +114,14 @@ export async function allocateLocker(input: {
 
   if (memberError || !member) return { error: "Member not found" };
 
+  const validTill = computeValidTill(input.assignedAt, input.durationMonths);
+
   const { error } = await supabase.from("locker_allocations").insert({
     locker_id: input.lockerId,
     member_id: input.memberId,
     assigned_at: input.assignedAt,
+    duration_months: input.durationMonths,
+    valid_till: validTill,
     price: payment.price,
     payment_method: payment.payment_method,
     cash_amount: payment.cash_amount,
@@ -123,6 +140,7 @@ export async function updateLockerAllocation(input: {
   allocationId: string;
   memberId: string;
   assignedAt: string;
+  durationMonths: LockerDuration;
   price: number;
   paymentMethod: LockerPaymentMethod;
   cashAmount?: number;
@@ -130,6 +148,9 @@ export async function updateLockerAllocation(input: {
   notes?: string;
 }) {
   if (!isSupabaseConfigured()) return { error: DEMO_ERROR };
+  if (![1, 3].includes(input.durationMonths)) {
+    return { error: "Locker validity must be 1 month or 3 months" };
+  }
   const paymentDetails = normalizeLockerPayment({
     price: input.price,
     paymentMethod: input.paymentMethod,
@@ -140,6 +161,8 @@ export async function updateLockerAllocation(input: {
   const payment = paymentDetails.payment;
   if (!payment) return { error: "Failed to normalize locker payment" };
 
+  const validTill = computeValidTill(input.assignedAt, input.durationMonths);
+
   const supabase = await createClient();
 
   const { error } = await supabase
@@ -147,6 +170,8 @@ export async function updateLockerAllocation(input: {
     .update({
       member_id: input.memberId,
       assigned_at: input.assignedAt,
+      duration_months: input.durationMonths,
+      valid_till: validTill,
       price: payment.price,
       payment_method: payment.payment_method,
       cash_amount: payment.cash_amount,
