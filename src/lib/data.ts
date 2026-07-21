@@ -329,7 +329,7 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
 
   const supabase = await createClient();
 
-  const [{ data: member }, { data: memberships, error }] = await Promise.all([
+  const [{ data: member, error: memberError }, { data: memberships, error: membershipsError }] = await Promise.all([
     supabase
       .from("members")
       .select("id, full_name, phone, email")
@@ -342,7 +342,7 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
       .order("start_date", { ascending: true }),
   ]);
 
-  if (!member || error || !memberships) return null;
+  if (memberError || !member || membershipsError || !memberships) return null;
 
   const historyEntries: import("./types").MemberHistoryEntry[] = memberships.map((m: {
     id: string;
