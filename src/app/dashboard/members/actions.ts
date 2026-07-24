@@ -18,6 +18,13 @@ type PaymentMethod = "cash" | "upi" | "card" | "bank_transfer" | "other" | "upi_
 
 const PAYMENT_METHODS = new Set(["cash", "upi", "card", "bank_transfer", "other", "upi_cash"]);
 
+function addDaysToIsoDate(startDate: string, days: number) {
+  const [year, month, day] = startDate.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
 function normalizePaymentDetails(input: {
   amount: number;
   paymentMethod: string;
@@ -136,11 +143,7 @@ export async function addUnassignedMembership(input: AddUnassignedMembershipInpu
     if (!input.duration) {
       return { error: "Duration is required" };
     }
-    const [sy, sm, sd] = input.startDate.split("-").map(Number);
-    const targetMonth = sm - 1 + input.duration;
-    const lastDayOfTarget = new Date(Date.UTC(sy, targetMonth + 1, 0)).getUTCDate();
-    const clampedDay = Math.min(sd, lastDayOfTarget);
-    endDate = new Date(Date.UTC(sy, targetMonth, clampedDay)).toISOString().slice(0, 10);
+    endDate = addDaysToIsoDate(input.startDate, input.duration * 30);
   }
 
   const { data: membership, error: membershipError } = await supabase

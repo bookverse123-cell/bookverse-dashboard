@@ -20,12 +20,11 @@ const DURATION_OPTIONS = [
 
 type TenureMode = "duration" | "custom";
 
-function addMonthsClamped(start: string, months: number) {
+function addDaysToIsoDate(start: string, days: number) {
   const [year, month, day] = start.split("-").map(Number);
-  const targetMonth = month - 1 + months;
-  const lastDayOfTarget = new Date(Date.UTC(year, targetMonth + 1, 0)).getUTCDate();
-  const clampedDay = Math.min(day, lastDayOfTarget);
-  return new Date(Date.UTC(year, targetMonth, clampedDay)).toISOString().slice(0, 10);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
 type PaymentMethod = "cash" | "upi" | "card" | "bank_transfer" | "other" | "upi_cash";
@@ -46,7 +45,7 @@ export function AssignSeatModal({
   const [duration, setDuration] = useState<1 | 2 | 3 | 4 | 6>(1);
   const [batch, setBatch] = useState<BatchOption>("24x7 Batch");
   const [startDate, setStartDate] = useState(todayStr());
-  const [endDate, setEndDate] = useState(addMonthsClamped(todayStr(), 1));
+  const [endDate, setEndDate] = useState(addDaysToIsoDate(todayStr(), 30));
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [amount, setAmount] = useState(0);
   const [cashAmount, setCashAmount] = useState(0);

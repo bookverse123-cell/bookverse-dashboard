@@ -160,7 +160,7 @@ export function MembersTable({
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto overflow-y-visible">
           <table className="w-full min-w-[720px] text-left text-sm">
             <thead>
               <tr className="border-b border-parchment-line text-xs uppercase tracking-wider text-ink-text/40">
@@ -272,7 +272,11 @@ export function MembersTable({
                       </span>
                     </td>
                     <td className="py-3 text-right">
-                      <div className="relative inline-block text-left">
+                      <div
+                        className={`relative inline-block text-left ${
+                          openMenuMembershipId === row_.membership_id ? "z-[120]" : "z-10"
+                        }`}
+                      >
                         <button
                           onClick={() =>
                             setOpenMenuMembershipId((prev) =>
@@ -287,7 +291,7 @@ export function MembersTable({
                         </button>
 
                         {openMenuMembershipId === row_.membership_id && (
-                          <div className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-lg border border-parchment-line bg-white shadow-xl">
+                          <div className="absolute right-0 z-[130] mt-1 w-44 overflow-hidden rounded-lg border border-parchment-line bg-white shadow-xl">
                             <Link
                               href={`/dashboard/members/${row_.member_id}`}
                               onClick={() => setOpenMenuMembershipId(null)}

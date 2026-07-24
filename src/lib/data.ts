@@ -308,9 +308,8 @@ export async function getMemberships(): Promise<{ data: MembershipRow[] }> {
       const start = new Date(row.start_date);
       const end = new Date(row.end_date);
       const days = Math.round((end.getTime() - today.getTime()) / 86400000);
-      const duration_months =
-        (end.getFullYear() - start.getFullYear()) * 12 +
-        (end.getMonth() - start.getMonth());
+      const durationDays = Math.round((end.getTime() - start.getTime()) / 86400000);
+      const duration_months = Math.max(1, Math.round(durationDays / 30));
       return {
         membership_id: row.id,
         member_id: row.members!.id,
@@ -431,9 +430,8 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
   }) => {
     const start = new Date(m.start_date);
     const end = new Date(m.end_date);
-    const duration_months =
-      (end.getFullYear() - start.getFullYear()) * 12 +
-      (end.getMonth() - start.getMonth());
+    const durationDays = Math.round((end.getTime() - start.getTime()) / 86400000);
+    const duration_months = Math.max(1, Math.round(durationDays / 30));
     return {
       membership_id: m.id,
       start_date: m.start_date,
