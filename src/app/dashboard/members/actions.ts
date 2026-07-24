@@ -74,8 +74,9 @@ export type AddUnassignedMembershipInput = {
   fullName: string;
   phone: string;
   email?: string;
-  duration: 1 | 2 | 3 | 4 | 6;
+  duration?: 1 | 2 | 3 | 4 | 6;
   startDate: string;
+  endDate?: string;
   amountPaid: number;
   batch: BatchOption;
   paymentMethod: PaymentMethod;
@@ -126,11 +127,21 @@ export async function addUnassignedMembership(input: AddUnassignedMembershipInpu
     memberId = newMember.id;
   }
 
-  const [sy, sm, sd] = input.startDate.split("-").map(Number);
-  const targetMonth = sm - 1 + input.duration;
-  const lastDayOfTarget = new Date(Date.UTC(sy, targetMonth + 1, 0)).getUTCDate();
-  const clampedDay = Math.min(sd, lastDayOfTarget);
-  const endDate = new Date(Date.UTC(sy, targetMonth, clampedDay)).toISOString().slice(0, 10);
+  let endDate = input.endDate;
+  if (endDate) {
+    if (endDate <= input.startDate) {
+      return { error: "End date must be after start date" };
+    }
+  } else {
+    if (!input.duration) {
+      return { error: "Duration is required" };
+    }
+    const [sy, sm, sd] = input.startDate.split("-").map(Number);
+    const targetMonth = sm - 1 + input.duration;
+    const lastDayOfTarget = new Date(Date.UTC(sy, targetMonth + 1, 0)).getUTCDate();
+    const clampedDay = Math.min(sd, lastDayOfTarget);
+    endDate = new Date(Date.UTC(sy, targetMonth, clampedDay)).toISOString().slice(0, 10);
+  }
 
   const { data: membership, error: membershipError } = await supabase
     .from("memberships")

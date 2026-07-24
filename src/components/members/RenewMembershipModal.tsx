@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { X, Loader2 } from "lucide-react";
 import { renewMembership } from "@/app/dashboard/seats/actions";
 import { BATCH_OPTIONS, type BatchOption } from "@/lib/batches";
+import { DatePopover } from "@/components/ui/DatePopover";
 
 const DURATION_OPTIONS = [
   { value: 1, label: "1 Month" },
@@ -13,6 +14,18 @@ const DURATION_OPTIONS = [
   { value: 4, label: "4 Months" },
   { value: 6, label: "6 Months" },
 ] as const;
+
+const todayStr = () => new Date().toISOString().slice(0, 10);
+
+type RenewalMode = "duration" | "custom";
+
+function addMonthsClamped(start: string, months: number) {
+  const [year, month, day] = start.split("-").map(Number);
+  const targetMonth = month - 1 + months;
+  const lastDayOfTarget = new Date(Date.UTC(year, targetMonth + 1, 0)).getUTCDate();
+  const clampedDay = Math.min(day, lastDayOfTarget);
+  return new Date(Date.UTC(year, targetMonth, clampedDay)).toISOString().slice(0, 10);
+}
 
 type PaymentMethod = "cash" | "upi" | "card" | "bank_transfer" | "other" | "upi_cash";
 
@@ -25,10 +38,14 @@ export function RenewMembershipModal({
   onClose: () => void;
   onRenewed: () => void;
 }) {
+  const today = todayStr();
   const [duration, setDuration] = useState<1 | 2 | 3 | 4 | 6>(1);
   const [amount, setAmount] = useState(0);
   const [batch, setBatch] = useState<BatchOption>(membership.batch ?? "24x7 Batch");
+  const [renewalMode, setRenewalMode] = useState<RenewalMode>("duration");
   const [startFrom, setStartFrom] = useState<"today" | "end_date">("today");
+  const [customStartDate, setCustomStartDate] = useState(today);
+  const [customEndDate, setCustomEndDate] = useState(addMonthsClamped(today, 1));
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [cashAmount, setCashAmount] = useState(0);
   const [upiAmount, setUpiAmount] = useState(0);
@@ -55,6 +72,11 @@ export function RenewMembershipModal({
       }
     }
 
+    if (renewalMode === "custom" && customEndDate <= customStartDate) {
+      setError("End date must be after start date");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -63,8 +85,10 @@ export function RenewMembershipModal({
       res = await renewMembership({
         membershipId: membership.membership_id,
         amount,
-        duration,
-        startFrom,
+        duration: renewalMode === "duration" ? duration : undefined,
+        startFrom: renewalMode === "duration" ? startFrom : undefined,
+        customStartDate: renewalMode === "custom" ? customStartDate : undefined,
+        customEndDate: renewalMode === "custom" ? customEndDate : undefined,
         batch,
         paymentMethod,
         cashAmount: paymentMethod === "upi_cash" ? cashAmount : undefined,
@@ -117,6 +141,37 @@ export function RenewMembershipModal({
         </div>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <div className="space-y-2 rounded-lg border border-parchment-line/80 bg-white/50 p-3">
+            <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50">
+              Membership range
+            </label>
+            <div className="flex flex-wrap gap-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="renewalMode"
+                  value="duration"
+                  checked={renewalMode === "duration"}
+                  onChange={() => setRenewalMode("duration")}
+                  className="accent-brass"
+                />
+                <span className="text-sm text-ink-text">By duration</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="renewalMode"
+                  value="custom"
+                  checked={renewalMode === "custom"}
+                  onChange={() => setRenewalMode("custom")}
+                  className="accent-brass"
+                />
+                <span className="text-sm text-ink-text">Custom dates</span>
+              </label>
+            </div>
+          </div>
+
+          {renewalMode === "duration" ? (
           <div>
             <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-2">
               Start from
@@ -148,24 +203,42 @@ export function RenewMembershipModal({
               </label>
             </div>
           </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
-                Duration
-              </label>
-              <select
-                value={duration}
-                onChange={(e) => setDuration(Number(e.target.value) as 1 | 2 | 3 | 4 | 6)}
-                className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
-              >
-                {DURATION_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
+                  Start date
+                </label>
+                <DatePopover value={customStartDate} onChange={setCustomStartDate} />
+              </div>
+              <div>
+                <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
+                  End date
+                </label>
+                <DatePopover value={customEndDate} onChange={setCustomEndDate} min={customStartDate} />
+              </div>
             </div>
+          )}
+
+          <div className={`grid gap-3 ${renewalMode === "duration" ? "grid-cols-2" : "grid-cols-1"}`}>
+            {renewalMode === "duration" && (
+              <div>
+                <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
+                  Duration
+                </label>
+                <select
+                  value={duration}
+                  onChange={(e) => setDuration(Number(e.target.value) as 1 | 2 | 3 | 4 | 6)}
+                  className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
+                >
+                  {DURATION_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
                 Batch

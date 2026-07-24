@@ -17,6 +17,16 @@ const DURATION_OPTIONS = [
   { value: 6, label: "6 Months" },
 ] as const;
 
+type TenureMode = "duration" | "custom";
+
+function addMonthsClamped(start: string, months: number) {
+  const [year, month, day] = start.split("-").map(Number);
+  const targetMonth = month - 1 + months;
+  const lastDayOfTarget = new Date(Date.UTC(year, targetMonth + 1, 0)).getUTCDate();
+  const clampedDay = Math.min(day, lastDayOfTarget);
+  return new Date(Date.UTC(year, targetMonth, clampedDay)).toISOString().slice(0, 10);
+}
+
 type PaymentMethod = "cash" | "upi" | "card" | "bank_transfer" | "other" | "upi_cash";
 
 export function AddUnassignedMemberModal({
@@ -29,9 +39,11 @@ export function AddUnassignedMemberModal({
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("+91");
   const [email, setEmail] = useState("");
+  const [tenureMode, setTenureMode] = useState<TenureMode>("duration");
   const [duration, setDuration] = useState<1 | 2 | 3 | 4 | 6>(1);
   const [batch, setBatch] = useState<BatchOption>("24x7 Batch");
   const [startDate, setStartDate] = useState(todayStr());
+  const [endDate, setEndDate] = useState(addMonthsClamped(todayStr(), 1));
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [amount, setAmount] = useState(0);
   const [cashAmount, setCashAmount] = useState(0);
@@ -54,6 +66,11 @@ export function AddUnassignedMemberModal({
       }
     }
 
+    if (tenureMode === "custom" && endDate <= startDate) {
+      setError("End date must be after start date");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -63,9 +80,10 @@ export function AddUnassignedMemberModal({
         fullName,
         phone,
         email: email || undefined,
-        duration,
+        duration: tenureMode === "duration" ? duration : undefined,
         batch,
         startDate,
+        endDate: tenureMode === "custom" ? endDate : undefined,
         amountPaid: amount,
         paymentMethod,
         cashAmount: paymentMethod === "upi_cash" ? cashAmount : undefined,
@@ -152,18 +170,54 @@ export function AddUnassignedMemberModal({
             </div>
           </div>
 
+          <div className="space-y-2 rounded-lg border border-parchment-line/80 bg-white/50 p-3">
+            <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50">
+              Membership range
+            </label>
+            <div className="flex flex-wrap gap-3">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="tenureMode"
+                  value="duration"
+                  checked={tenureMode === "duration"}
+                  onChange={() => setTenureMode("duration")}
+                  className="accent-brass"
+                />
+                <span className="text-sm text-ink-text">By duration</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="tenureMode"
+                  value="custom"
+                  checked={tenureMode === "custom"}
+                  onChange={() => setTenureMode("custom")}
+                  className="accent-brass"
+                />
+                <span className="text-sm text-ink-text">Custom dates</span>
+              </label>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
-              <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">Duration</label>
-              <select
-                value={duration}
-                onChange={(e) => setDuration(Number(e.target.value) as 1 | 2 | 3 | 4 | 6)}
-                className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
-              >
-                {DURATION_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
+              <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
+                {tenureMode === "duration" ? "Duration" : "End date"}
+              </label>
+              {tenureMode === "duration" ? (
+                <select
+                  value={duration}
+                  onChange={(e) => setDuration(Number(e.target.value) as 1 | 2 | 3 | 4 | 6)}
+                  className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
+                >
+                  {DURATION_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              ) : (
+                <DatePopover value={endDate} onChange={setEndDate} min={startDate} />
+              )}
             </div>
             <div>
               <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">Batch</label>

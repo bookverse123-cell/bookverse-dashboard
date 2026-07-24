@@ -10,8 +10,9 @@ export type AssignSeatInput = {
   fullName: string;
   phone: string;
   email?: string;
-  duration: 1 | 2 | 3 | 4 | 6;
+  duration?: 1 | 2 | 3 | 4 | 6;
   startDate: string;
+  endDate?: string;
   amountPaid: number;
   batch: BatchOption;
   paymentMethod: "cash" | "upi" | "card" | "bank_transfer" | "other" | "upi_cash";
@@ -135,11 +136,21 @@ export async function assignSeat(input: AssignSeatInput) {
     memberId = newMember.id;
   }
 
-  const [sy, sm, sd] = input.startDate.split("-").map(Number);
-  const targetMonth = sm - 1 + input.duration; // 0-indexed months
-  const lastDayOfTarget = new Date(Date.UTC(sy, targetMonth + 1, 0)).getUTCDate();
-  const clampedDay = Math.min(sd, lastDayOfTarget);
-  const endDate = new Date(Date.UTC(sy, targetMonth, clampedDay)).toISOString().slice(0, 10);
+  let endDate = input.endDate;
+  if (endDate) {
+    if (endDate <= input.startDate) {
+      return { error: "End date must be after start date" };
+    }
+  } else {
+    if (!input.duration) {
+      return { error: "Duration is required" };
+    }
+    const [sy, sm, sd] = input.startDate.split("-").map(Number);
+    const targetMonth = sm - 1 + input.duration;
+    const lastDayOfTarget = new Date(Date.UTC(sy, targetMonth + 1, 0)).getUTCDate();
+    const clampedDay = Math.min(sd, lastDayOfTarget);
+    endDate = new Date(Date.UTC(sy, targetMonth, clampedDay)).toISOString().slice(0, 10);
+  }
 
   const { data: membership, error: membershipError } = await supabase
     .from("memberships")
@@ -201,8 +212,10 @@ export async function endMembership(membershipId: string) {
 export type RenewInput = {
   membershipId: string;
   amount: number;
-  duration: 1 | 2 | 3 | 4 | 6;
-  startFrom: "today" | "end_date";
+  duration?: 1 | 2 | 3 | 4 | 6;
+  startFrom?: "today" | "end_date";
+  customStartDate?: string;
+  customEndDate?: string;
   batch: BatchOption;
   paymentMethod: "cash" | "upi" | "card" | "bank_transfer" | "other" | "upi_cash";
   cashAmount?: number;
@@ -242,12 +255,26 @@ export async function renewMembership(input: RenewInput) {
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const newStart = input.startFrom === "today" ? today : current.end_date;
-  const [ry, rm, rd] = newStart.split("-").map(Number);
-  const rTargetMonth = rm - 1 + input.duration;
-  const rLastDay = new Date(Date.UTC(ry, rTargetMonth + 1, 0)).getUTCDate();
-  const rClampedDay = Math.min(rd, rLastDay);
-  const newEnd = new Date(Date.UTC(ry, rTargetMonth, rClampedDay)).toISOString().slice(0, 10);
+  let newStart: string;
+  let newEnd: string;
+
+  if (input.customStartDate && input.customEndDate) {
+    newStart = input.customStartDate;
+    newEnd = input.customEndDate;
+    if (newEnd <= newStart) {
+      return { error: "End date must be after start date" };
+    }
+  } else {
+    if (!input.startFrom || !input.duration) {
+      return { error: "Duration and start option are required" };
+    }
+    newStart = input.startFrom === "today" ? today : current.end_date;
+    const [ry, rm, rd] = newStart.split("-").map(Number);
+    const rTargetMonth = rm - 1 + input.duration;
+    const rLastDay = new Date(Date.UTC(ry, rTargetMonth + 1, 0)).getUTCDate();
+    const rClampedDay = Math.min(rd, rLastDay);
+    newEnd = new Date(Date.UTC(ry, rTargetMonth, rClampedDay)).toISOString().slice(0, 10);
+  }
 
   // Close previous membership period so history stays intact.
   const previousStatus: "expired" | "cancelled" = newStart >= current.end_date ? "expired" : "cancelled";
