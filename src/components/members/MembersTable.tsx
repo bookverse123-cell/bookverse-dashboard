@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, MessageCircle, Phone, Ticket, Trash2, RefreshCw, Eye, ArrowLeftRight, UserPlus, LogOut, MoreVertical } from "lucide-react";
 import type { MembershipRow, DailyPassRow, SeatStatus } from "@/lib/types";
@@ -51,6 +52,40 @@ export function MembersTable({
   const [renewTarget, setRenewTarget] = useState<MembershipRow | null>(null);
   const [changeSeatTarget, setChangeSeatTarget] = useState<MembershipRow | null>(null);
   const [openMenuMembershipId, setOpenMenuMembershipId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; right: number } | null>(null);
+  const [menuTargetRow, setMenuTargetRow] = useState<MembershipRow | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!openMenuMembershipId) return;
+    function onMouseDown(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpenMenuMembershipId(null);
+        setMenuPosition(null);
+        setMenuTargetRow(null);
+      }
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, [openMenuMembershipId]);
+
+  function openMenu(row: MembershipRow, e: React.MouseEvent<HTMLButtonElement>) {
+    if (openMenuMembershipId === row.membership_id) {
+      setOpenMenuMembershipId(null);
+      setMenuPosition(null);
+      setMenuTargetRow(null);
+      return;
+    }
+    const rect = e.currentTarget.getBoundingClientRect();
+    const menuHeight = 210;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const top = spaceBelow >= menuHeight
+      ? rect.bottom + 4
+      : rect.top - menuHeight - 4;
+    setMenuPosition({ top, right: window.innerWidth - rect.right });
+    setOpenMenuMembershipId(row.membership_id);
+    setMenuTargetRow(row);
+  }
 
   const availableSeats = useMemo(
     () =>
@@ -272,85 +307,18 @@ export function MembersTable({
                       </span>
                     </td>
                     <td className="py-3 text-right">
-                      <div
-                        className={`relative inline-block text-left ${
-                          openMenuMembershipId === row_.membership_id ? "z-[120]" : "z-10"
+                      <button
+                        onClick={(e) => openMenu(row_, e)}
+                        className={`inline-flex h-9 w-9 items-center justify-center rounded-md border transition ${
+                          openMenuMembershipId === row_.membership_id
+                            ? "border-brass/40 bg-brass/10 text-brass-soft"
+                            : "border-ink-line/25 text-ink-text/70 hover:bg-ink-text/5"
                         }`}
+                        aria-label="Open member actions"
+                        title="More actions"
                       >
-                        <button
-                          onClick={() =>
-                            setOpenMenuMembershipId((prev) =>
-                              prev === row_.membership_id ? null : row_.membership_id,
-                            )
-                          }
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-ink-line/25 text-ink-text/70 transition hover:bg-ink-text/5"
-                          aria-label="Open member actions"
-                          title="More actions"
-                        >
-                          <MoreVertical size={16} />
-                        </button>
-
-                        {openMenuMembershipId === row_.membership_id && (
-                          <div className="absolute right-0 z-[130] mt-1 w-44 overflow-hidden rounded-lg border border-parchment-line bg-white shadow-xl">
-                            <Link
-                              href={`/dashboard/members/${row_.member_id}`}
-                              onClick={() => setOpenMenuMembershipId(null)}
-                              className="flex w-full items-center gap-2 border-b border-parchment-line/60 px-3 py-2 text-left text-xs text-ink-text/75 transition hover:bg-ink-text/5"
-                            >
-                              <Eye size={13} />
-                              View
-                            </Link>
-                            <button
-                              onClick={() => {
-                                setRenewTarget(row_);
-                                setOpenMenuMembershipId(null);
-                              }}
-                              className="flex w-full items-center gap-2 border-b border-parchment-line/60 px-3 py-2 text-left text-xs text-brass-soft transition hover:bg-brass/10"
-                            >
-                              <RefreshCw size={13} />
-                              Renew
-                            </button>
-                            <button
-                              onClick={() => {
-                                if (!canChangeSeat) return;
-                                setChangeSeatTarget(row_);
-                                setOpenMenuMembershipId(null);
-                              }}
-                              disabled={!canChangeSeat}
-                              title={canChangeSeat ? "Change this member's seat" : changeSeatDisabledReason}
-                              className="flex w-full items-center gap-2 border-b border-parchment-line/60 px-3 py-2 text-left text-xs text-ink-text/75 transition hover:bg-ink-text/5 disabled:opacity-50"
-                            >
-                              <ArrowLeftRight size={13} />
-                              {row_.is_unassigned ? "Assign Seat" : "Change Seat"}
-                            </button>
-                            {!row_.is_unassigned && (
-                              <button
-                                onClick={() => {
-                                  handleUnassign(row_.membership_id);
-                                  setOpenMenuMembershipId(null);
-                                }}
-                                disabled={!canUnassignSeat || unassigningId === row_.membership_id}
-                                title={canUnassignSeat ? "Remove seat and keep membership active" : "Only active memberships can be unassigned"}
-                                className="flex w-full items-center gap-2 border-b border-parchment-line/60 px-3 py-2 text-left text-xs text-terracotta transition hover:bg-terracotta/10 disabled:opacity-50"
-                              >
-                                <LogOut size={13} />
-                                {unassigningId === row_.membership_id ? "Unassigning…" : "Unassign Seat"}
-                              </button>
-                            )}
-                            <button
-                              onClick={() => {
-                                handleRemind(row_.membership_id);
-                                setOpenMenuMembershipId(null);
-                              }}
-                              disabled={sendingId === row_.membership_id}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-sage transition hover:bg-sage/10 disabled:opacity-50"
-                            >
-                              <MessageCircle size={13} />
-                              {sendingId === row_.membership_id ? "Sending…" : "Remind"}
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                        <MoreVertical size={16} />
+                      </button>
                     </td>
                   </motion.tr>
                 );
@@ -362,6 +330,68 @@ export function MembersTable({
           )}
         </div>
       </div>
+
+      {openMenuMembershipId && menuPosition && menuTargetRow &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="fixed z-[300] w-44 overflow-hidden rounded-lg border border-parchment-line bg-white shadow-xl"
+            style={{ top: menuPosition.top, right: menuPosition.right }}
+          >
+            {(() => {
+              const r = menuTargetRow;
+              const canCS = r.status === "active" && availableSeats.length > 0;
+              const canUA = r.status === "active" && !r.is_unassigned;
+              const changeSeatDisabled = r.status !== "active"
+                ? "Only active memberships can change seats"
+                : "No available seats";
+              return (
+                <>
+                  <Link
+                    href={`/dashboard/members/${r.member_id}`}
+                    onClick={() => { setOpenMenuMembershipId(null); setMenuPosition(null); setMenuTargetRow(null); }}
+                    className="flex w-full items-center gap-2 border-b border-parchment-line/60 px-3 py-2 text-left text-xs text-ink-text/75 transition hover:bg-ink-text/5"
+                  >
+                    <Eye size={13} /> View
+                  </Link>
+                  <button
+                    onClick={() => { setRenewTarget(r); setOpenMenuMembershipId(null); setMenuPosition(null); setMenuTargetRow(null); }}
+                    className="flex w-full items-center gap-2 border-b border-parchment-line/60 px-3 py-2 text-left text-xs text-brass-soft transition hover:bg-brass/10"
+                  >
+                    <RefreshCw size={13} /> Renew
+                  </button>
+                  <button
+                    onClick={() => { if (!canCS) return; setChangeSeatTarget(r); setOpenMenuMembershipId(null); setMenuPosition(null); setMenuTargetRow(null); }}
+                    disabled={!canCS}
+                    title={canCS ? "Change this member's seat" : changeSeatDisabled}
+                    className="flex w-full items-center gap-2 border-b border-parchment-line/60 px-3 py-2 text-left text-xs text-ink-text/75 transition hover:bg-ink-text/5 disabled:opacity-50"
+                  >
+                    <ArrowLeftRight size={13} /> {r.is_unassigned ? "Assign Seat" : "Change Seat"}
+                  </button>
+                  {!r.is_unassigned && (
+                    <button
+                      onClick={() => { handleUnassign(r.membership_id); setOpenMenuMembershipId(null); setMenuPosition(null); setMenuTargetRow(null); }}
+                      disabled={!canUA || unassigningId === r.membership_id}
+                      title={canUA ? "Remove seat and keep membership active" : "Only active memberships can be unassigned"}
+                      className="flex w-full items-center gap-2 border-b border-parchment-line/60 px-3 py-2 text-left text-xs text-terracotta transition hover:bg-terracotta/10 disabled:opacity-50"
+                    >
+                      <LogOut size={13} /> {unassigningId === r.membership_id ? "Unassigning…" : "Unassign Seat"}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { handleRemind(r.membership_id); setOpenMenuMembershipId(null); setMenuPosition(null); setMenuTargetRow(null); }}
+                    disabled={sendingId === r.membership_id}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-sage transition hover:bg-sage/10 disabled:opacity-50"
+                  >
+                    <MessageCircle size={13} /> {sendingId === r.membership_id ? "Sending…" : "Remind"}
+                  </button>
+                </>
+              );
+            })()}
+          </div>,
+          document.body
+        )
+      }
 
       <AnimatePresence>
         {showModal && (

@@ -88,6 +88,23 @@ export type DailyPassRow = {
   amount: number;
 };
 
+export type MembershipMonthRow = {
+  monthKey: string;
+  month: string;
+  assignedRevenue: number;
+  unassignedRevenue: number;
+  dailyPassRevenue: number;
+};
+
+export type MembershipPaymentRow = {
+  id: string;
+  date: string;
+  amount: number;
+  memberName: string;
+  seatCode: string | null;
+  category: "assigned" | "unassigned" | "daily_pass";
+};
+
 export type LockerStatus = {
   locker_id: string;
   locker_code: string;

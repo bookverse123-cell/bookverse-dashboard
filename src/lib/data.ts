@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { SeatStatus, MembershipRow, LedgerRow, DailyPassRow, LockerStatus } from "@/lib/types";
+import type { SeatStatus, MembershipRow, LedgerRow, DailyPassRow, LockerStatus, MembershipPaymentRow } from "@/lib/types";
 
 export function isSupabaseConfigured() {
   return (
@@ -88,6 +88,20 @@ export async function getKPIs() {
   };
 }
 
+function billingPeriod(dateStr: string): { key: string; label: string } {
+  const parts = dateStr.slice(0, 10).split("-");
+  let year = Number(parts[0]);
+  let month = Number(parts[1]);
+  const day = Number(parts[2]);
+  if (day < 15) {
+    month -= 1;
+    if (month < 1) { month = 12; year -= 1; }
+  }
+  const key = `${year}-${String(month).padStart(2, "0")}`;
+  const label = new Date(year, month - 1, 1).toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+  return { key, label };
+}
+
 export async function getFinanceMonthly() {
   const supabase = await createClient();
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -123,11 +137,11 @@ export async function getFinanceMonthly() {
   const map = new Map<string, Row>();
 
   function getEntry(dateStr: string): Row {
-    const key = dateStr.slice(0, 7);
+    const { key, label } = billingPeriod(dateStr);
     if (!map.has(key)) {
       map.set(key, {
         monthKey: key,
-        month: new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { month: "short" }),
+        month: label,
         membershipRevenue: 0,
         lockerRevenue: 0,
         cafeteriaRevenue: 0,
@@ -274,6 +288,99 @@ export async function getExpenditures(): Promise<{ data: LedgerRow[] }> {
       upi_amount: r.upi_amount !== null ? Number(r.upi_amount) : null,
     })),
   };
+}
+
+export async function getMembershipMonthly() {
+  if (!isSupabaseConfigured()) return { data: [] };
+  const supabase = await createClient();
+
+  const [{ data: paymentRows }, { data: dailyPassRows }] = await Promise.all([
+    supabase.from("payments").select("payment_date, amount, memberships(seat_id)"),
+    supabase.from("daily_passes").select("date, amount"),
+  ]);
+
+  type MRow = {
+    monthKey: string;
+    month: string;
+    assignedRevenue: number;
+    unassignedRevenue: number;
+    dailyPassRevenue: number;
+  };
+
+  const map = new Map<string, MRow>();
+
+  function getEntry(dateStr: string): MRow {
+    const { key, label } = billingPeriod(dateStr);
+    if (!map.has(key)) {
+      map.set(key, { monthKey: key, month: label, assignedRevenue: 0, unassignedRevenue: 0, dailyPassRevenue: 0 });
+    }
+    return map.get(key)!;
+  }
+
+  for (const p of paymentRows ?? []) {
+    const entry = getEntry(p.payment_date);
+    const ms = Array.isArray(p.memberships) ? p.memberships[0] : p.memberships;
+    if ((ms as { seat_id: string | null } | null)?.seat_id) {
+      entry.assignedRevenue += Number(p.amount);
+    } else {
+      entry.unassignedRevenue += Number(p.amount);
+    }
+  }
+
+  for (const p of dailyPassRows ?? []) {
+    getEntry(p.date).dailyPassRevenue += Number(p.amount);
+  }
+
+  const sortedKeys = Array.from(map.keys()).sort();
+  return { data: sortedKeys.map((k) => map.get(k)!) };
+}
+
+export async function getMembershipPayments() {
+  if (!isSupabaseConfigured()) return { data: [] as MembershipPaymentRow[] };
+  const supabase = await createClient();
+
+  const [{ data: payments }, { data: dailyPasses }] = await Promise.all([
+    supabase
+      .from("payments")
+      .select("id, payment_date, amount, memberships(seat_id, members(full_name), seats(seat_code))")
+      .order("payment_date", { ascending: false })
+      .limit(300),
+    supabase
+      .from("daily_passes")
+      .select("id, full_name, date, amount")
+      .order("date", { ascending: false })
+      .limit(300),
+  ]);
+
+  const rows: MembershipPaymentRow[] = [];
+
+  for (const p of payments ?? []) {
+    const ms = Array.isArray(p.memberships) ? p.memberships[0] : (p.memberships as { seat_id: string | null; members: { full_name: string } | { full_name: string }[] | null; seats: { seat_code: string } | { seat_code: string }[] | null } | null);
+    const member = ms ? (Array.isArray(ms.members) ? ms.members[0] : ms.members) : null;
+    const seat = ms ? (Array.isArray(ms.seats) ? ms.seats[0] : ms.seats) : null;
+    rows.push({
+      id: p.id,
+      date: p.payment_date,
+      amount: Number(p.amount),
+      memberName: (member as { full_name: string } | null)?.full_name ?? "Unknown",
+      seatCode: (seat as { seat_code: string } | null)?.seat_code ?? null,
+      category: (seat as { seat_code: string } | null)?.seat_code ? "assigned" : "unassigned",
+    });
+  }
+
+  for (const p of dailyPasses ?? []) {
+    rows.push({
+      id: p.id,
+      date: p.date,
+      amount: Number(p.amount),
+      memberName: p.full_name,
+      seatCode: null,
+      category: "daily_pass",
+    });
+  }
+
+  rows.sort((a, b) => b.date.localeCompare(a.date));
+  return { data: rows };
 }
 
 type MembershipJoinRow = {

@@ -8,15 +8,19 @@ import {
   getCafeteriaExpenses,
   getCafeteriaSales,
   getExpenditures,
+  getMembershipMonthly,
+  getMembershipPayments,
 } from "@/lib/data";
 
 export default async function FinancePage() {
-  const [monthly, breakdown, expenses, sales, expenditures] = await Promise.all([
+  const [monthly, breakdown, expenses, sales, expenditures, membershipMonthly, membershipPayments] = await Promise.all([
     getFinanceMonthly(),
     getExpenseBreakdown(),
     getCafeteriaExpenses(),
     getCafeteriaSales(),
     getExpenditures(),
+    getMembershipMonthly(),
+    getMembershipPayments(),
   ]);
 
   const totalRevenue = monthly.data.reduce(
@@ -69,6 +73,8 @@ export default async function FinancePage() {
           expenses={expenses.data}
           sales={sales.data}
           expenditures={expenditures.data}
+          membershipMonthly={membershipMonthly.data}
+          membershipPayments={membershipPayments.data}
         />
       </div>
     </>
