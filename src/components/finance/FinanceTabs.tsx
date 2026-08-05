@@ -424,6 +424,7 @@ export function FinanceTabs({
         <MembershipAnalyticsCard
           monthly={filteredMembershipMonthly}
           payments={filteredMembershipPayments}
+          lockerExpenses={filteredExpenditures}
         />
       )}
 

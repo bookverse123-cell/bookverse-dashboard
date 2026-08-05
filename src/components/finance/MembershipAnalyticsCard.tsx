@@ -35,12 +35,38 @@ const CATEGORY_BG: Record<MembershipPaymentRow["category"], string> = {
 export function MembershipAnalyticsCard({
   monthly,
   payments,
+  lockerExpenses,
 }: {
   monthly: MembershipMonthRow[];
   payments: MembershipPaymentRow[];
+  lockerExpenses: {
+    id: string;
+    description: string;
+    category: string;
+    amount: number;
+    date: string;
+    payment_method?: "cash" | "upi" | "cash_upi";
+    cash_amount?: number | null;
+    upi_amount?: number | null;
+  }[];
 }) {
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<MembershipPaymentRow["category"] | "all">("all");
+
+  function toBillingKey(date: string) {
+    const parts = date.slice(0, 10).split("-");
+    let y = Number(parts[0]);
+    let mo = Number(parts[1]);
+    const day = Number(parts[2]);
+    if (day < 15) {
+      mo -= 1;
+      if (mo < 1) {
+        mo = 12;
+        y -= 1;
+      }
+    }
+    return `${y}-${String(mo).padStart(2, "0")}`;
+  }
 
   const totalAssigned = monthly.reduce((s, m) => s + m.assignedRevenue, 0);
   const totalUnassigned = monthly.reduce((s, m) => s + m.unassignedRevenue, 0);
@@ -50,19 +76,33 @@ export function MembershipAnalyticsCard({
   const filteredPayments = payments.filter((p) => {
     if (categoryFilter !== "all" && p.category !== categoryFilter) return false;
     if (selectedPeriod) {
-      const parts = p.date.slice(0, 10).split("-");
-      let y = Number(parts[0]);
-      let mo = Number(parts[1]);
-      const day = Number(parts[2]);
-      if (day < 15) {
-        mo -= 1;
-        if (mo < 1) { mo = 12; y -= 1; }
-      }
-      const key = `${y}-${String(mo).padStart(2, "0")}`;
-      if (key !== selectedPeriod) return false;
+      if (toBillingKey(p.date) !== selectedPeriod) return false;
     }
     return true;
   });
+
+  const lockerExpenseRows = lockerExpenses.filter((row) => {
+    const text = `${row.category} ${row.description}`.toLowerCase();
+    if (!text.includes("locker")) return false;
+    if (selectedPeriod && toBillingKey(row.date) !== selectedPeriod) return false;
+    return true;
+  });
+
+  const lockerExpenseTotal = lockerExpenseRows.reduce((sum, row) => sum + row.amount, 0);
+  const lockerExpenseCash = lockerExpenseRows.reduce((sum, row) => {
+    if (row.payment_method === "cash") return sum + row.amount;
+    if (row.payment_method === "cash_upi") return sum + Number(row.cash_amount ?? 0);
+    return sum;
+  }, 0);
+  const lockerExpenseUpi = lockerExpenseRows.reduce((sum, row) => {
+    if (row.payment_method === "upi") return sum + row.amount;
+    if (row.payment_method === "cash_upi") return sum + Number(row.upi_amount ?? 0);
+    return sum;
+  }, 0);
+  const lockerExpenseSplit = lockerExpenseRows.reduce((sum, row) => {
+    if (row.payment_method === "cash_upi") return sum + row.amount;
+    return sum;
+  }, 0);
 
   const chartData = monthly.map((m) => ({
     month: m.month,
@@ -157,6 +197,41 @@ export function MembershipAnalyticsCard({
       )}
 
       {/* Payment ledger */}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, delay: 0.08 }}
+        className="rounded-2xl border border-ink-line/10 bg-white/60 p-5 sm:p-6"
+      >
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-display text-lg text-ink-text">Locker expense breakout</h3>
+            <p className="text-sm text-ink-text/50">
+              {lockerExpenseRows.length} entries {selectedPeriod ? "in selected period" : "(all periods)"}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="rounded-xl border border-terracotta/20 bg-terracotta/8 p-4">
+            <p className="text-xs font-mono uppercase tracking-wider text-terracotta">Total locker expense</p>
+            <p className="mt-1 text-xl font-medium text-ink-text">₹{lockerExpenseTotal.toLocaleString("en-IN")}</p>
+          </div>
+          <div className="rounded-xl border border-ink-line/10 bg-white/80 p-4">
+            <p className="text-xs font-mono uppercase tracking-wider text-ink-text/40">Cash breakout</p>
+            <p className="mt-1 text-xl font-medium text-ink-text">₹{lockerExpenseCash.toLocaleString("en-IN")}</p>
+          </div>
+          <div className="rounded-xl border border-ink-line/10 bg-white/80 p-4">
+            <p className="text-xs font-mono uppercase tracking-wider text-ink-text/40">UPI breakout</p>
+            <p className="mt-1 text-xl font-medium text-ink-text">₹{lockerExpenseUpi.toLocaleString("en-IN")}</p>
+          </div>
+          <div className="rounded-xl border border-ink-line/10 bg-white/80 p-4">
+            <p className="text-xs font-mono uppercase tracking-wider text-ink-text/40">Split payments</p>
+            <p className="mt-1 text-xl font-medium text-ink-text">₹{lockerExpenseSplit.toLocaleString("en-IN")}</p>
+          </div>
+        </div>
+      </motion.div>
+
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
