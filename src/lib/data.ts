@@ -1,5 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
-import type { SeatStatus, MembershipRow, LedgerRow, DailyPassRow, LockerStatus, MembershipPaymentRow } from "@/lib/types";
+import type {
+  SeatStatus,
+  MembershipRow,
+  LedgerRow,
+  DailyPassRow,
+  LockerStatus,
+  MembershipPaymentRow,
+  LockerAllocationFinanceRow,
+} from "@/lib/types";
 
 export function isSupabaseConfigured() {
   return (
@@ -380,6 +388,40 @@ export async function getMembershipPayments() {
   }
 
   rows.sort((a, b) => b.date.localeCompare(a.date));
+  return { data: rows };
+}
+
+export async function getLockerAllocationFinanceRows() {
+  if (!isSupabaseConfigured()) return { data: [] as LockerAllocationFinanceRow[] };
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("locker_allocations")
+    .select("id, assigned_at, price, payment_method, cash_amount, upi_amount, lockers(locker_code), members(full_name)")
+    .order("assigned_at", { ascending: false })
+    .limit(300);
+
+  const rows: LockerAllocationFinanceRow[] = [];
+
+  for (const row of data ?? []) {
+    const locker = Array.isArray(row.lockers) ? row.lockers[0] : row.lockers;
+    const member = Array.isArray(row.members) ? row.members[0] : row.members;
+
+    rows.push({
+      id: row.id,
+      date: row.assigned_at,
+      amount: Number(row.price ?? 0),
+      payment_method:
+        row.payment_method === "cash" || row.payment_method === "upi" || row.payment_method === "cash_upi"
+          ? row.payment_method
+          : undefined,
+      cash_amount: row.cash_amount !== null ? Number(row.cash_amount) : null,
+      upi_amount: row.upi_amount !== null ? Number(row.upi_amount) : null,
+      lockerCode: (locker as { locker_code: string } | null)?.locker_code ?? null,
+      memberName: (member as { full_name: string } | null)?.full_name ?? null,
+    });
+  }
+
   return { data: rows };
 }
 

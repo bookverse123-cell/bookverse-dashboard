@@ -105,6 +105,17 @@ export type MembershipPaymentRow = {
   category: "assigned" | "unassigned" | "daily_pass";
 };
 
+export type LockerAllocationFinanceRow = {
+  id: string;
+  date: string;
+  amount: number;
+  payment_method?: "cash" | "upi" | "cash_upi";
+  cash_amount?: number | null;
+  upi_amount?: number | null;
+  lockerCode: string | null;
+  memberName: string | null;
+};
+
 export type LockerStatus = {
   locker_id: string;
   locker_code: string;

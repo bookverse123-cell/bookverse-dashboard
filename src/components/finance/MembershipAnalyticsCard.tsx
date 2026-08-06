@@ -12,7 +12,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import type { MembershipMonthRow, MembershipPaymentRow } from "@/lib/types";
+import type { LockerAllocationFinanceRow, MembershipMonthRow, MembershipPaymentRow } from "@/lib/types";
 
 const CATEGORY_LABEL: Record<MembershipPaymentRow["category"], string> = {
   assigned: "Seat assigned",
@@ -35,38 +35,23 @@ const CATEGORY_BG: Record<MembershipPaymentRow["category"], string> = {
 export function MembershipAnalyticsCard({
   monthly,
   payments,
-  lockerExpenses,
+  lockerAllocations,
+  scopeLabel,
+  showSummary = true,
+  showLockerBreakup = true,
+  showChart = true,
+  showLedger = true,
 }: {
   monthly: MembershipMonthRow[];
   payments: MembershipPaymentRow[];
-  lockerExpenses: {
-    id: string;
-    description: string;
-    category: string;
-    amount: number;
-    date: string;
-    payment_method?: "cash" | "upi" | "cash_upi";
-    cash_amount?: number | null;
-    upi_amount?: number | null;
-  }[];
+  lockerAllocations: LockerAllocationFinanceRow[];
+  scopeLabel: string;
+  showSummary?: boolean;
+  showLockerBreakup?: boolean;
+  showChart?: boolean;
+  showLedger?: boolean;
 }) {
-  const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<MembershipPaymentRow["category"] | "all">("all");
-
-  function toBillingKey(date: string) {
-    const parts = date.slice(0, 10).split("-");
-    let y = Number(parts[0]);
-    let mo = Number(parts[1]);
-    const day = Number(parts[2]);
-    if (day < 15) {
-      mo -= 1;
-      if (mo < 1) {
-        mo = 12;
-        y -= 1;
-      }
-    }
-    return `${y}-${String(mo).padStart(2, "0")}`;
-  }
 
   const totalAssigned = monthly.reduce((s, m) => s + m.assignedRevenue, 0);
   const totalUnassigned = monthly.reduce((s, m) => s + m.unassignedRevenue, 0);
@@ -75,18 +60,10 @@ export function MembershipAnalyticsCard({
 
   const filteredPayments = payments.filter((p) => {
     if (categoryFilter !== "all" && p.category !== categoryFilter) return false;
-    if (selectedPeriod) {
-      if (toBillingKey(p.date) !== selectedPeriod) return false;
-    }
     return true;
   });
 
-  const lockerExpenseRows = lockerExpenses.filter((row) => {
-    const text = `${row.category} ${row.description}`.toLowerCase();
-    if (!text.includes("locker")) return false;
-    if (selectedPeriod && toBillingKey(row.date) !== selectedPeriod) return false;
-    return true;
-  });
+  const lockerExpenseRows = lockerAllocations;
 
   const lockerExpenseTotal = lockerExpenseRows.reduce((sum, row) => sum + row.amount, 0);
   const lockerExpenseCash = lockerExpenseRows.reduce((sum, row) => {
@@ -103,6 +80,7 @@ export function MembershipAnalyticsCard({
     if (row.payment_method === "cash_upi") return sum + row.amount;
     return sum;
   }, 0);
+  const lockerAllocationCount = lockerExpenseRows.length;
 
   const chartData = monthly.map((m) => ({
     month: m.month,
@@ -113,58 +91,72 @@ export function MembershipAnalyticsCard({
 
   return (
     <div className="space-y-4">
-      {/* Summary stats */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {[
-          { label: "Seat assigned", value: totalAssigned, cls: "border-sage/20 bg-sage/10", text: "text-sage" },
-          { label: "Non-assigned", value: totalUnassigned, cls: "border-brass/20 bg-brass/10", text: "text-brass-soft" },
-          { label: "Daily passes", value: totalDailyPass, cls: "border-blue-200 bg-blue-50", text: "text-blue-500" },
-          { label: "Total revenue", value: total, cls: "border-ink-line/10 bg-white/60", text: "text-ink-text" },
-        ].map((s) => (
-          <div key={s.label} className={`rounded-xl border p-4 ${s.cls}`}>
-            <p className={`text-xs font-mono uppercase tracking-wider ${s.text}`}>{s.label}</p>
-            <p className="mt-1 text-xl font-medium text-ink-text">₹{s.value.toLocaleString("en-IN")}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Billing period selector */}
-      {monthly.length > 0 && (
-        <div className="flex gap-1 overflow-x-auto rounded-lg bg-ink-text/5 p-1 w-fit max-w-full">
-          <button
-            onClick={() => setSelectedPeriod(null)}
-            className={`whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition ${
-              !selectedPeriod ? "bg-white text-ink-text shadow-sm" : "text-ink-text/50 hover:text-ink-text"
-            }`}
-          >
-            All periods
-          </button>
-          {monthly.map((m) => (
-            <button
-              key={m.monthKey}
-              onClick={() => setSelectedPeriod(selectedPeriod === m.monthKey ? null : m.monthKey)}
-              className={`whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                selectedPeriod === m.monthKey
-                  ? "bg-white text-ink-text shadow-sm"
-                  : "text-ink-text/50 hover:text-ink-text"
-              }`}
-            >
-              {m.month}
-            </button>
+      {showSummary && (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {[
+            { label: "Seat assigned", value: totalAssigned, cls: "border-sage/20 bg-sage/10", text: "text-sage" },
+            { label: "Non-assigned", value: totalUnassigned, cls: "border-brass/20 bg-brass/10", text: "text-brass-soft" },
+            { label: "Daily passes", value: totalDailyPass, cls: "border-blue-200 bg-blue-50", text: "text-blue-500" },
+            { label: "Total revenue", value: total, cls: "border-ink-line/10 bg-white/60", text: "text-ink-text" },
+          ].map((s) => (
+            <div key={s.label} className={`rounded-xl border p-4 ${s.cls}`}>
+              <p className={`text-xs font-mono uppercase tracking-wider ${s.text}`}>{s.label}</p>
+              <p className="mt-1 text-xl font-medium text-ink-text">₹{s.value.toLocaleString("en-IN")}</p>
+            </div>
           ))}
         </div>
       )}
 
-      {/* Chart */}
-      {monthly.length > 0 && (
+      {showLockerBreakup && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.08 }}
+          className="rounded-2xl border border-ink-line/10 bg-white/60 p-5 sm:p-6"
+        >
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="font-display text-lg text-ink-text">Locker expense breakup</h3>
+              <p className="text-sm text-ink-text/50">
+                {lockerExpenseRows.length} entries · {scopeLabel}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div className="rounded-xl border border-terracotta/20 bg-terracotta/8 p-4">
+              <p className="text-xs font-mono uppercase tracking-wider text-terracotta">Allocated lockers</p>
+              <p className="mt-1 text-xl font-medium text-ink-text">{lockerAllocationCount}</p>
+            </div>
+            <div className="rounded-xl border border-terracotta/20 bg-terracotta/8 p-4">
+              <p className="text-xs font-mono uppercase tracking-wider text-terracotta">Total locker amount</p>
+              <p className="mt-1 text-xl font-medium text-ink-text">₹{lockerExpenseTotal.toLocaleString("en-IN")}</p>
+            </div>
+            <div className="rounded-xl border border-ink-line/10 bg-white/80 p-4 sm:col-span-2">
+              <p className="text-xs font-mono uppercase tracking-wider text-ink-text/40">Cash</p>
+              <p className="mt-1 text-xl font-medium text-ink-text">₹{lockerExpenseCash.toLocaleString("en-IN")}</p>
+            </div>
+            <div className="rounded-xl border border-ink-line/10 bg-white/80 p-4 sm:col-span-2">
+              <p className="text-xs font-mono uppercase tracking-wider text-ink-text/40">UPI</p>
+              <p className="mt-1 text-xl font-medium text-ink-text">₹{lockerExpenseUpi.toLocaleString("en-IN")}</p>
+            </div>
+            <div className="rounded-xl border border-ink-line/10 bg-white/80 p-4 sm:col-span-2">
+              <p className="text-xs font-mono uppercase tracking-wider text-ink-text/40">Cash + UPI split</p>
+              <p className="mt-1 text-xl font-medium text-ink-text">₹{lockerExpenseSplit.toLocaleString("en-IN")}</p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {showChart && monthly.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }}
           className="rounded-2xl border border-ink-line/10 bg-white/60 p-5 sm:p-6"
         >
-          <h3 className="font-display text-lg text-ink-text mb-1">Revenue by billing period</h3>
-          <p className="text-sm text-ink-text/50 mb-4">15th–14th cycle breakdown by member type</p>
+          <h3 className="font-display text-lg text-ink-text mb-1">Membership revenue split</h3>
+          <p className="text-sm text-ink-text/50 mb-4">Current scope: {scopeLabel}</p>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
@@ -196,43 +188,8 @@ export function MembershipAnalyticsCard({
         </motion.div>
       )}
 
-      {/* Payment ledger */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, delay: 0.08 }}
-        className="rounded-2xl border border-ink-line/10 bg-white/60 p-5 sm:p-6"
-      >
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="font-display text-lg text-ink-text">Locker expense breakout</h3>
-            <p className="text-sm text-ink-text/50">
-              {lockerExpenseRows.length} entries {selectedPeriod ? "in selected period" : "(all periods)"}
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <div className="rounded-xl border border-terracotta/20 bg-terracotta/8 p-4">
-            <p className="text-xs font-mono uppercase tracking-wider text-terracotta">Total locker expense</p>
-            <p className="mt-1 text-xl font-medium text-ink-text">₹{lockerExpenseTotal.toLocaleString("en-IN")}</p>
-          </div>
-          <div className="rounded-xl border border-ink-line/10 bg-white/80 p-4">
-            <p className="text-xs font-mono uppercase tracking-wider text-ink-text/40">Cash breakout</p>
-            <p className="mt-1 text-xl font-medium text-ink-text">₹{lockerExpenseCash.toLocaleString("en-IN")}</p>
-          </div>
-          <div className="rounded-xl border border-ink-line/10 bg-white/80 p-4">
-            <p className="text-xs font-mono uppercase tracking-wider text-ink-text/40">UPI breakout</p>
-            <p className="mt-1 text-xl font-medium text-ink-text">₹{lockerExpenseUpi.toLocaleString("en-IN")}</p>
-          </div>
-          <div className="rounded-xl border border-ink-line/10 bg-white/80 p-4">
-            <p className="text-xs font-mono uppercase tracking-wider text-ink-text/40">Split payments</p>
-            <p className="mt-1 text-xl font-medium text-ink-text">₹{lockerExpenseSplit.toLocaleString("en-IN")}</p>
-          </div>
-        </div>
-      </motion.div>
-
-      <motion.div
+      {showLedger && (
+        <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, delay: 0.1 }}
@@ -299,7 +256,8 @@ export function MembershipAnalyticsCard({
             )}
           </div>
         )}
-      </motion.div>
+        </motion.div>
+      )}
     </div>
   );
 }
