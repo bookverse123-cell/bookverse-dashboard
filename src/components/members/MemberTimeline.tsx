@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { PencilLine } from "lucide-react";
+import { PencilLine, PauseCircle, PlayCircle } from "lucide-react";
 import type { MemberHistoryEntry } from "@/lib/types";
 import { MembershipRecordEditModal } from "@/components/members/MembershipRecordEditModal";
 
@@ -11,6 +11,7 @@ function isUpcoming(m: MemberHistoryEntry) {
 }
 
 function statusPill(m: MemberHistoryEntry) {
+  if (m.status === "paused") return "bg-brass/15 text-brass-soft";
   if (isUpcoming(m)) return "bg-brass/15 text-brass-soft";
   if (m.status === "active") return "bg-sage/15 text-sage";
   if (m.status === "cancelled") return "bg-terracotta/15 text-terracotta";
@@ -18,6 +19,7 @@ function statusPill(m: MemberHistoryEntry) {
 }
 
 function statusLabel(m: MemberHistoryEntry) {
+  if (m.status === "paused") return "Paused";
   if (isUpcoming(m)) return "Upcoming";
   if (m.status === "active") return "Active";
   if (m.status === "cancelled") return "Cancelled";
@@ -125,6 +127,27 @@ export function MemberTimeline({
 
               {m.remarks && (
                 <p className="mt-2 text-xs italic text-ink-text/50">{m.remarks}</p>
+              )}
+
+              {m.events.length > 0 && (
+                <div className="mt-3 space-y-1.5 border-t border-parchment-line pt-3">
+                  {m.events.map((ev) => (
+                    <div key={ev.id} className="flex items-start gap-2 text-xs text-ink-text/50">
+                      {ev.event_type === "paused" ? (
+                        <PauseCircle size={12} className="mt-0.5 shrink-0 text-brass-soft" />
+                      ) : (
+                        <PlayCircle size={12} className="mt-0.5 shrink-0 text-sage" />
+                      )}
+                      <span>
+                        <span className={ev.event_type === "paused" ? "text-brass-soft" : "text-sage"}>
+                          {ev.event_type === "paused" ? "Paused" : "Resumed"}
+                        </span>
+                        {" · "}{fmt(ev.event_date)}
+                        {ev.note && <span className="text-ink-text/35"> · {ev.note}</span>}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>

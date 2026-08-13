@@ -13,7 +13,7 @@ import { RenewMembershipModal } from "@/components/members/RenewMembershipModal"
 import { ChangeSeatModal } from "@/components/seats/ChangeSeatModal";
 import { AddUnassignedMemberModal } from "@/components/members/AddUnassignedMemberModal";
 
-const FILTERS = ["All", "Active", "Renewal due", "Expired", "Unassigned", "Daily Pass"] as const;
+const FILTERS = ["All", "Active", "Paused", "Renewal due", "Expired", "Unassigned", "Daily Pass"] as const;
 type Filter = (typeof FILTERS)[number];
 
 type DisplayRow =
@@ -21,6 +21,9 @@ type DisplayRow =
   | { kind: "daily_pass"; data: DailyPassRow };
 
 function membershipStatusPill(row: MembershipRow) {
+  if (row.status === "paused") {
+    return { label: "Paused", className: "bg-brass/15 text-brass-soft" };
+  }
   if (row.status === "cancelled") {
     return { label: "Cancelled", className: "bg-ink-text/10 text-ink-text/50" };
   }
@@ -31,6 +34,22 @@ function membershipStatusPill(row: MembershipRow) {
     return { label: "Renewal due", className: "bg-brass/15 text-brass-soft" };
   }
   return { label: "Active", className: "bg-sage/15 text-sage" };
+}
+
+function daysChip(row: MembershipRow): { label: string; className: string } | null {
+  if (row.status === "paused") {
+    const elapsed = row.paused_at
+      ? Math.round((Date.now() - new Date(row.paused_at).getTime()) / 86400000)
+      : 0;
+    return { label: `${elapsed}d paused`, className: "bg-ink-text/5 text-ink-text/40" };
+  }
+  if (row.status !== "active") return null;
+  const d = row.days_until_expiry;
+  if (d < 0) return { label: `${Math.abs(d)}d overdue`, className: "bg-terracotta/10 text-terracotta" };
+  if (d <= 3) return { label: `${d}d left`, className: "bg-terracotta/15 text-terracotta" };
+  if (d <= 7) return { label: `${d}d left`, className: "bg-amber-50 text-amber-600" };
+  if (d <= 15) return { label: `${d}d left`, className: "bg-brass/10 text-brass-soft" };
+  return { label: `${d}d left`, className: "bg-sage/10 text-sage" };
 }
 
 export function MembersTable({
@@ -138,10 +157,11 @@ export function MembersTable({
 
       const r = row.data;
       if (filter === "Unassigned") return r.is_unassigned;
+      if (filter === "Paused") return r.status === "paused";
       if (filter === "Active") return r.status === "active" && r.days_until_expiry > 3;
       if (filter === "Renewal due")
         return r.status === "active" && r.days_until_expiry >= 0 && r.days_until_expiry <= 3;
-      if (filter === "Expired") return r.status !== "active" || r.days_until_expiry < 0;
+      if (filter === "Expired") return (r.status !== "active" && r.status !== "paused") || r.days_until_expiry < 0;
       return true;
     });
   }, [rows, dailyPasses, query, filter]);
@@ -260,10 +280,13 @@ export function MembersTable({
 
                 const row_ = row.data;
                 const pill = membershipStatusPill(row_);
+                const chip = daysChip(row_);
                 const canChangeSeat = row_.status === "active" && availableSeats.length > 0;
                 const canUnassignSeat = row_.status === "active" && !row_.is_unassigned;
                 const changeSeatDisabledReason =
-                  row_.status !== "active"
+                  row_.status === "paused"
+                    ? "Resume membership before changing seat"
+                    : row_.status !== "active"
                     ? "Only active memberships can change seats"
                     : "No unassigned seats available";
                 const seatLabel = row_.is_unassigned ? "No seat assigned" : `Seat No. ${row_.seat_code}`;
@@ -302,9 +325,16 @@ export function MembersTable({
                       {new Date(row_.end_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
                     </td>
                     <td className="py-3">
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${pill.className}`}>
-                        {pill.label}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${pill.className}`}>
+                          {pill.label}
+                        </span>
+                        {chip && (
+                          <span className={`rounded-full px-2 py-0.5 font-mono text-[10px] ${chip.className}`}>
+                            {chip.label}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 text-right">
                       <button
@@ -356,7 +386,7 @@ export function MembersTable({
                   </Link>
                   <button
                     onClick={() => { setRenewTarget(r); setOpenMenuMembershipId(null); setMenuPosition(null); setMenuTargetRow(null); }}
-                    className="flex w-full items-center gap-2 border-b border-parchment-line/60 px-3 py-2 text-left text-xs text-brass-soft transition hover:bg-brass/10"
+                    className="flex w-full items-center gap-2 border-b border-parchment-line/60 px-3 py-2 text-left text-xs font-semibold text-brass transition hover:bg-brass/15"
                   >
                     <RefreshCw size={13} /> Renew
                   </button>

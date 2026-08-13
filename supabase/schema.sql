@@ -447,3 +447,32 @@ alter table daily_passes enable row level security;
 
 create policy "authenticated full access" on daily_passes for all
   using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+-- ============================================================================
+-- PAUSE / RESUME MEMBERSHIP
+-- ============================================================================
+
+alter table memberships add column if not exists paused_at date;
+alter table memberships add column if not exists total_paused_days int not null default 0;
+
+-- Extend status to allow 'paused'
+alter table memberships drop constraint if exists memberships_status_check;
+alter table memberships add constraint memberships_status_check
+  check (status in ('active', 'expired', 'cancelled', 'paused'));
+
+-- Audit log for pause / resume events
+create table if not exists membership_events (
+  id uuid primary key default uuid_generate_v4(),
+  membership_id uuid not null references memberships(id) on delete cascade,
+  event_type text not null check (event_type in ('paused', 'resumed')),
+  event_date date not null default current_date,
+  note text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_membership_events_membership on membership_events(membership_id);
+
+alter table membership_events enable row level security;
+
+create policy "authenticated full access" on membership_events for all
+  using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');

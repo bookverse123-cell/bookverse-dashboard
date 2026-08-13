@@ -35,8 +35,9 @@ export type MembershipRow = {
   amount_paid: number;
   start_date: string;
   end_date: string;
-  status: "active" | "expired" | "cancelled";
+  status: "active" | "expired" | "cancelled" | "paused";
   days_until_expiry: number;
+  paused_at: string | null;
   batch: BatchOption | null;
   remarks: string | null;
 };
@@ -50,6 +51,13 @@ export type PaymentEntry = {
   upi_amount: number | null;
 };
 
+export type MembershipEventEntry = {
+  id: string;
+  event_type: "paused" | "resumed";
+  event_date: string;
+  note: string | null;
+};
+
 export type MemberHistoryEntry = {
   membership_id: string;
   start_date: string;
@@ -58,9 +66,11 @@ export type MemberHistoryEntry = {
   amount_paid: number;
   batch: BatchOption | null;
   seat_code: string | null;
-  status: "active" | "expired" | "cancelled";
+  status: "active" | "expired" | "cancelled" | "paused";
+  paused_at: string | null;
   remarks: string | null;
   payments: PaymentEntry[];
+  events: MembershipEventEntry[];
 };
 
 export type MemberDetail = {

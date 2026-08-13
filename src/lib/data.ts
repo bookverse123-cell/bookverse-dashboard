@@ -454,7 +454,8 @@ type MembershipJoinRow = {
   id: string;
   start_date: string;
   end_date: string;
-  status: "active" | "expired" | "cancelled";
+  status: "active" | "expired" | "cancelled" | "paused";
+  paused_at: string | null;
   amount_paid: number;
   batch: import("./batches").BatchOption | null;
   remarks: string | null;
@@ -467,7 +468,7 @@ export async function getMemberships(): Promise<{ data: MembershipRow[] }> {
   const { data, error } = await supabase
     .from("memberships")
     .select(
-      "id, start_date, end_date, status, amount_paid, batch, remarks, members(id, full_name, phone, email), seats(seat_code, zone)"
+      "id, start_date, end_date, status, paused_at, amount_paid, batch, remarks, members(id, full_name, phone, email), seats(seat_code, zone)"
     )
     .order("created_at", { ascending: false });
 
@@ -499,6 +500,7 @@ export async function getMemberships(): Promise<{ data: MembershipRow[] }> {
         end_date: row.end_date,
         status: row.status,
         days_until_expiry: days,
+        paused_at: row.paused_at ?? null,
         batch: row.batch,
         remarks: row.remarks,
       };
@@ -547,8 +549,10 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
           batch: "Morning Batch",
           seat_code: null,
           status: "expired",
+          paused_at: null,
           remarks: null,
           payments: [{ id: "demo-p1", amount: 2200, payment_date: "2026-04-15", method: "cash", cash_amount: null, upi_amount: null }],
+          events: [],
         },
         {
           membership_id: "demo-2",
@@ -559,8 +563,10 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
           batch: "Evening Batch",
           seat_code: null,
           status: "expired",
+          paused_at: null,
           remarks: "Paid in advance",
           payments: [{ id: "demo-p2", amount: 4200, payment_date: "2026-05-15", method: "upi", cash_amount: null, upi_amount: null }],
+          events: [],
         },
         {
           membership_id: "demo-3",
@@ -571,8 +577,10 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
           batch: "24x7 Batch",
           seat_code: "S-24",
           status: "active",
+          paused_at: null,
           remarks: null,
           payments: [{ id: "demo-p3", amount: 2300, payment_date: "2026-07-15", method: "cash", cash_amount: null, upi_amount: null }],
+          events: [],
         },
       ],
     };
@@ -588,7 +596,7 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
       .single(),
     supabase
       .from("memberships")
-      .select("id, start_date, end_date, status, amount_paid, batch, remarks, seats(seat_code), payments(id, amount, payment_date, method, cash_amount, upi_amount)")
+      .select("id, start_date, end_date, status, paused_at, amount_paid, batch, remarks, seats(seat_code), payments(id, amount, payment_date, method, cash_amount, upi_amount), membership_events(id, event_type, event_date, note)")
       .eq("member_id", memberId)
       .order("start_date", { ascending: true }),
   ]);
@@ -599,12 +607,14 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
     id: string;
     start_date: string;
     end_date: string;
-    status: "active" | "expired" | "cancelled";
+    status: "active" | "expired" | "cancelled" | "paused";
+    paused_at: string | null;
     amount_paid: number;
     batch: import("./batches").BatchOption | null;
     seats: { seat_code: string } | { seat_code: string }[] | null;
     remarks: string | null;
     payments: { id: string; amount: number; payment_date: string; method: string; cash_amount: number | null; upi_amount: number | null }[];
+    membership_events: { id: string; event_type: "paused" | "resumed"; event_date: string; note: string | null }[];
   }) => {
     const seat = Array.isArray(m.seats) ? m.seats[0] : m.seats;
     const start = new Date(m.start_date);
@@ -620,6 +630,7 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
       batch: m.batch,
       seat_code: seat?.seat_code ?? null,
       status: m.status,
+      paused_at: m.paused_at ?? null,
       remarks: m.remarks,
       payments: (m.payments ?? []).map((p) => ({
         id: p.id,
@@ -629,6 +640,9 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
         cash_amount: p.cash_amount === null ? null : Number(p.cash_amount),
         upi_amount: p.upi_amount === null ? null : Number(p.upi_amount),
       })),
+      events: (m.membership_events ?? [])
+        .sort((a, b) => a.event_date.localeCompare(b.event_date))
+        .map((e) => ({ id: e.id, event_type: e.event_type, event_date: e.event_date, note: e.note })),
     };
   });
 

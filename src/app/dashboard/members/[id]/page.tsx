@@ -7,6 +7,7 @@ import { MemberTimeline } from "@/components/members/MemberTimeline";
 import { MemberBatchEditor } from "@/components/members/MemberBatchEditor";
 import { MemberDetailActions } from "@/components/members/MemberDetailActions";
 import { MemberConversionAction } from "@/components/members/MemberConversionAction";
+import { MemberPauseAction } from "@/components/members/MemberPauseAction";
 import { getSeatStatuses } from "@/lib/data";
 
 export default async function MemberDetailPage({
@@ -30,7 +31,9 @@ export default async function MemberDetailPage({
     : "—";
 
   const currentStatusLabel = latestMembership
-    ? new Date(latestMembership.start_date) > new Date()
+    ? latestMembership.status === "paused"
+      ? "Paused"
+      : new Date(latestMembership.start_date) > new Date()
       ? "Upcoming"
       : latestMembership.status === "active"
       ? "Active"
@@ -39,7 +42,9 @@ export default async function MemberDetailPage({
       : "Expired"
     : "—";
 
-  const currentStatusClass = latestMembership?.status === "active"
+  const currentStatusClass = latestMembership?.status === "paused"
+    ? "bg-brass/15 text-brass-soft"
+    : latestMembership?.status === "active"
     ? new Date(latestMembership.start_date) > new Date()
       ? "bg-brass/15 text-brass-soft"
       : "bg-sage/15 text-sage"
@@ -107,6 +112,20 @@ export default async function MemberDetailPage({
               membershipId={latestMembership.membership_id}
               memberId={detail.member_id}
               initialBatch={latestMembership.batch}
+            />
+          </div>
+        )}
+
+        {latestMembership && (
+          <div className="flex flex-wrap gap-3">
+            <MemberPauseAction
+              membership={{
+                membership_id: latestMembership.membership_id,
+                member_id: detail.member_id,
+                status: latestMembership.status,
+                paused_at: latestMembership.paused_at,
+              }}
+              availableSeats={availableSeats}
             />
           </div>
         )}

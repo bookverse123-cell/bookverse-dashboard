@@ -506,6 +506,111 @@ export async function updateMembershipRecord(input: {
   return { success: true };
 }
 
+export async function pauseMembership(input: {
+  membershipId: string;
+  memberId: string;
+}) {
+  if (!isSupabaseConfigured()) return { error: DEMO_ERROR };
+
+  const supabase = await createClient();
+
+  const { data: current, error: fetchError } = await supabase
+    .from("memberships")
+    .select("id, member_id, status")
+    .eq("id", input.membershipId)
+    .maybeSingle();
+
+  if (fetchError || !current) return { error: "Membership not found" };
+  if (current.member_id !== input.memberId) return { error: "Membership does not belong to this member" };
+  if (current.status !== "active") return { error: "Only active memberships can be paused" };
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const { error: updateError } = await supabase
+    .from("memberships")
+    .update({ status: "paused", paused_at: today, seat_id: null })
+    .eq("id", input.membershipId);
+
+  if (updateError) return { error: updateError.message };
+
+  await supabase.from("membership_events").insert({
+    membership_id: input.membershipId,
+    event_type: "paused",
+    event_date: today,
+  });
+
+  revalidatePath("/dashboard/members");
+  revalidatePath(`/dashboard/members/${input.memberId}`);
+  revalidatePath("/dashboard/seats");
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+export async function resumeMembership(input: {
+  membershipId: string;
+  memberId: string;
+  seatId: string;
+}) {
+  if (!isSupabaseConfigured()) return { error: DEMO_ERROR };
+
+  const supabase = await createClient();
+
+  const { data: current, error: fetchError } = await supabase
+    .from("memberships")
+    .select("id, member_id, status, paused_at, end_date, total_paused_days")
+    .eq("id", input.membershipId)
+    .maybeSingle();
+
+  if (fetchError || !current) return { error: "Membership not found" };
+  if (current.member_id !== input.memberId) return { error: "Membership does not belong to this member" };
+  if (current.status !== "paused") return { error: "Membership is not paused" };
+  if (!current.paused_at) return { error: "Paused date missing" };
+
+  const { data: seat, error: seatError } = await supabase
+    .from("seat_status")
+    .select("seat_id, is_active, occupancy_status")
+    .eq("seat_id", input.seatId)
+    .maybeSingle();
+
+  if (seatError || !seat) return { error: "Seat not found" };
+  if (!seat.is_active) return { error: "Seat is not active" };
+  if (seat.occupancy_status !== "available") return { error: "Selected seat is already occupied" };
+
+  const today = new Date().toISOString().slice(0, 10);
+  const pausedDate = new Date(current.paused_at);
+  const todayDate = new Date(today);
+  const daysPaused = Math.round((todayDate.getTime() - pausedDate.getTime()) / 86400000);
+
+  const newEndDate = addDaysToIsoDate(current.end_date, daysPaused);
+  const newTotalPausedDays = (current.total_paused_days ?? 0) + daysPaused;
+
+  const { error: updateError } = await supabase
+    .from("memberships")
+    .update({
+      status: "active",
+      paused_at: null,
+      total_paused_days: newTotalPausedDays,
+      end_date: newEndDate,
+      seat_id: input.seatId,
+    })
+    .eq("id", input.membershipId);
+
+  if (updateError) return { error: updateError.message };
+
+  await supabase.from("membership_events").insert({
+    membership_id: input.membershipId,
+    event_type: "resumed",
+    event_date: today,
+    note: `${daysPaused} day${daysPaused !== 1 ? "s" : ""} paused — end date extended to ${newEndDate}`,
+  });
+
+  revalidatePath("/dashboard/members");
+  revalidatePath(`/dashboard/members/${input.memberId}`);
+  revalidatePath("/dashboard/seats");
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
 export async function updateMemberProfile(input: {
   memberId: string;
   fullName: string;
