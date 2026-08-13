@@ -110,6 +110,31 @@ function billingPeriod(dateStr: string): { key: string; label: string } {
   return { key, label };
 }
 
+function resolveLockerAmount(row: {
+  price: number | null;
+  payment_method: string | null;
+  cash_amount: number | null;
+  upi_amount: number | null;
+}) {
+  const price = Number(row.price ?? 0);
+  const cashAmount = Number(row.cash_amount ?? 0);
+  const upiAmount = Number(row.upi_amount ?? 0);
+
+  if (row.payment_method === "cash_upi") {
+    return Number((cashAmount + upiAmount).toFixed(2));
+  }
+
+  if (Number.isFinite(price) && price > 0) {
+    return Number(price.toFixed(2));
+  }
+
+  if (cashAmount > 0 || upiAmount > 0) {
+    return Number((cashAmount + upiAmount).toFixed(2));
+  }
+
+  return Number(price.toFixed(2));
+}
+
 export async function getFinanceMonthly() {
   const supabase = await createClient();
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -127,7 +152,7 @@ export async function getFinanceMonthly() {
     supabase.from("cafeteria_expenses").select("expense_date, amount"),
     supabase.from("investments").select("investment_date, amount"),
     supabase.from("daily_passes").select("date, amount"),
-    supabase.from("locker_allocations").select("assigned_at, price"),
+    supabase.from("locker_allocations").select("assigned_at, price, payment_method, cash_amount, upi_amount"),
   ]);
 
   if (!membershipPayments) return { data: [] };
@@ -176,7 +201,7 @@ export async function getFinanceMonthly() {
     getEntry(p.date).membershipRevenue += Number(p.amount);
   }
   for (const l of lockerRevenueRows ?? []) {
-    getEntry(l.assigned_at).lockerRevenue += Number(l.price ?? 0);
+    getEntry(l.assigned_at).lockerRevenue += resolveLockerAmount(l);
   }
 
   const sortedKeys = Array.from(map.keys()).sort();
@@ -410,7 +435,7 @@ export async function getLockerAllocationFinanceRows() {
     rows.push({
       id: row.id,
       date: row.assigned_at,
-      amount: Number(row.price ?? 0),
+      amount: resolveLockerAmount(row),
       payment_method:
         row.payment_method === "cash" || row.payment_method === "upi" || row.payment_method === "cash_upi"
           ? row.payment_method
@@ -520,9 +545,10 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
           duration_months: 1,
           amount_paid: 2200,
           batch: "Morning Batch",
+          seat_code: null,
           status: "expired",
           remarks: null,
-          payments: [{ amount: 2200, payment_date: "2026-04-15", method: "cash", cash_amount: null, upi_amount: null }],
+          payments: [{ id: "demo-p1", amount: 2200, payment_date: "2026-04-15", method: "cash", cash_amount: null, upi_amount: null }],
         },
         {
           membership_id: "demo-2",
@@ -531,9 +557,10 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
           duration_months: 2,
           amount_paid: 4200,
           batch: "Evening Batch",
+          seat_code: null,
           status: "expired",
           remarks: "Paid in advance",
-          payments: [{ amount: 4200, payment_date: "2026-05-15", method: "upi", cash_amount: null, upi_amount: null }],
+          payments: [{ id: "demo-p2", amount: 4200, payment_date: "2026-05-15", method: "upi", cash_amount: null, upi_amount: null }],
         },
         {
           membership_id: "demo-3",
@@ -542,9 +569,10 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
           duration_months: 1,
           amount_paid: 2300,
           batch: "24x7 Batch",
+          seat_code: "S-24",
           status: "active",
           remarks: null,
-          payments: [{ amount: 2300, payment_date: "2026-07-15", method: "cash", cash_amount: null, upi_amount: null }],
+          payments: [{ id: "demo-p3", amount: 2300, payment_date: "2026-07-15", method: "cash", cash_amount: null, upi_amount: null }],
         },
       ],
     };
@@ -560,7 +588,7 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
       .single(),
     supabase
       .from("memberships")
-      .select("id, start_date, end_date, status, amount_paid, batch, remarks, payments(amount, payment_date, method, cash_amount, upi_amount)")
+      .select("id, start_date, end_date, status, amount_paid, batch, remarks, seats(seat_code), payments(id, amount, payment_date, method, cash_amount, upi_amount)")
       .eq("member_id", memberId)
       .order("start_date", { ascending: true }),
   ]);
@@ -574,9 +602,11 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
     status: "active" | "expired" | "cancelled";
     amount_paid: number;
     batch: import("./batches").BatchOption | null;
+    seats: { seat_code: string } | { seat_code: string }[] | null;
     remarks: string | null;
-    payments: { amount: number; payment_date: string; method: string; cash_amount: number | null; upi_amount: number | null }[];
+    payments: { id: string; amount: number; payment_date: string; method: string; cash_amount: number | null; upi_amount: number | null }[];
   }) => {
+    const seat = Array.isArray(m.seats) ? m.seats[0] : m.seats;
     const start = new Date(m.start_date);
     const end = new Date(m.end_date);
     const durationDays = Math.round((end.getTime() - start.getTime()) / 86400000);
@@ -588,9 +618,11 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
       duration_months,
       amount_paid: Number(m.amount_paid),
       batch: m.batch,
+      seat_code: seat?.seat_code ?? null,
       status: m.status,
       remarks: m.remarks,
       payments: (m.payments ?? []).map((p) => ({
+        id: p.id,
         amount: Number(p.amount),
         payment_date: p.payment_date,
         method: p.method,

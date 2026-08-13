@@ -43,7 +43,7 @@ export function MemberBatchEditor({
           <select
             value={batch}
             onChange={(e) => setBatch(e.target.value as BatchOption)}
-            className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
+            className="w-[250px] rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
           >
             {BATCH_OPTIONS.map((option) => (
               <option key={option} value={option}>
@@ -56,7 +56,7 @@ export function MemberBatchEditor({
         <button
           onClick={handleSave}
           disabled={isPending}
-          className="inline-flex h-[42px] items-center justify-center gap-2 rounded-lg bg-ink-text px-4 text-sm font-medium text-parchment transition hover:bg-ink disabled:opacity-50"
+          className="inline-flex h-[42px] w-full items-center justify-center gap-2 rounded-lg bg-ink-text px-4 text-sm font-medium text-parchment transition hover:bg-ink disabled:opacity-50"
         >
           {isPending && <Loader2 size={15} className="animate-spin" />}
           {isPending ? "Saving…" : "Save batch"}

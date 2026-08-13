@@ -266,7 +266,7 @@ export function MembersTable({
                   row_.status !== "active"
                     ? "Only active memberships can change seats"
                     : "No unassigned seats available";
-                const seatLabel = row_.is_unassigned ? "No seat assigned" : row_.seat_code;
+                const seatLabel = row_.is_unassigned ? "No seat assigned" : `Seat No. ${row_.seat_code}`;
                 return (
                   <motion.tr
                     key={row_.membership_id}

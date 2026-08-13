@@ -15,6 +15,7 @@ export type DailyPassInput = {
 };
 
 type PaymentMethod = "cash" | "upi" | "card" | "bank_transfer" | "other" | "upi_cash";
+type ConversionMode = "current_cycle" | "next_month";
 
 const PAYMENT_METHODS = new Set(["cash", "upi", "card", "bank_transfer", "other", "upi_cash"]);
 
@@ -244,6 +245,263 @@ export async function updateMembershipBatch(input: {
   revalidatePath("/dashboard/members");
   revalidatePath(`/dashboard/members/${input.memberId}`);
   revalidatePath("/dashboard/seats");
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+export async function convertMembershipTo24x7(input: {
+  membershipId: string;
+  memberId: string;
+  seatId: string;
+  mode: ConversionMode;
+  startDate: string;
+  duration?: 1 | 2 | 3 | 4 | 6;
+  endDate?: string;
+  amountPaid: number;
+  paymentMethod: PaymentMethod;
+  cashAmount?: number;
+  upiAmount?: number;
+  remarks?: string;
+}) {
+  if (!isSupabaseConfigured()) return { error: DEMO_ERROR };
+
+  if (!input.startDate) return { error: "Start date is required" };
+  if (!input.seatId) return { error: "Select a seat" };
+
+  const paymentDetails = normalizePaymentDetails({
+    amount: input.amountPaid,
+    paymentMethod: input.paymentMethod,
+    cashAmount: input.cashAmount,
+    upiAmount: input.upiAmount,
+  });
+  if (paymentDetails.error) return { error: paymentDetails.error };
+  const payment = paymentDetails.payment;
+  if (!payment) return { error: "Failed to normalize payment details" };
+
+  const supabase = await createClient();
+
+  const { data: current, error: currentError } = await supabase
+    .from("memberships")
+    .select("id, member_id, seat_id, start_date, end_date, status, batch")
+    .eq("id", input.membershipId)
+    .maybeSingle();
+
+  if (currentError || !current) return { error: "Membership not found" };
+  if (current.member_id !== input.memberId) return { error: "Membership does not belong to the selected member" };
+  if (current.status !== "active") return { error: "Only active memberships can be converted" };
+
+  const { data: seat, error: seatError } = await supabase
+    .from("seat_status")
+    .select("seat_id, is_active, occupancy_status")
+    .eq("seat_id", input.seatId)
+    .maybeSingle();
+
+  if (seatError || !seat) return { error: "Seat not found" };
+  if (!seat.is_active) return { error: "Seat is not active" };
+  if (seat.occupancy_status !== "available") return { error: "Selected seat is already occupied" };
+
+  const currentEndDate = current.end_date;
+  const today = new Date().toISOString().slice(0, 10);
+
+  const newStartDate = input.startDate;
+  let newEndDate = input.endDate ?? currentEndDate;
+
+  if (input.mode === "current_cycle") {
+    if (newStartDate > currentEndDate) {
+      return { error: "Start date must be on or before the current batch end date" };
+    }
+    if (newStartDate < current.start_date) {
+      return { error: "Start date cannot be before the current membership starts" };
+    }
+    newEndDate = currentEndDate;
+  } else {
+    if (newStartDate < currentEndDate) {
+      return { error: "Next month conversion must start on or after the current batch end date" };
+    }
+
+    if (input.endDate) {
+      if (input.endDate <= newStartDate) {
+        return { error: "End date must be after start date" };
+      }
+      newEndDate = input.endDate;
+    } else {
+      if (!input.duration) {
+        return { error: "Duration is required" };
+      }
+      newEndDate = addDaysToIsoDate(newStartDate, input.duration * 30);
+    }
+  }
+
+  if (input.mode === "current_cycle") {
+    const { error: closeError } = await supabase
+      .from("memberships")
+      .update({
+        end_date: newStartDate,
+        status: "cancelled",
+      })
+      .eq("id", current.id);
+
+    if (closeError) {
+      return { error: closeError.message ?? "Failed to update current membership" };
+    }
+  }
+
+  const { data: newMembership, error: membershipError } = await supabase
+    .from("memberships")
+    .insert({
+      member_id: input.memberId,
+      seat_id: input.seatId,
+      start_date: newStartDate,
+      end_date: newEndDate,
+      amount_paid: input.amountPaid,
+      batch: "24x7 Batch",
+      status: "active",
+      remarks: input.remarks ?? null,
+    })
+    .select("id")
+    .single();
+
+  if (membershipError || !newMembership) {
+    if (input.mode === "current_cycle") {
+      await supabase
+        .from("memberships")
+        .update({
+          end_date: currentEndDate,
+          status: current.status,
+        })
+        .eq("id", current.id);
+    }
+    return { error: membershipError?.message ?? "Failed to create 24x7 membership" };
+  }
+
+  const { error: paymentError } = await supabase.from("payments").insert({
+    membership_id: newMembership.id,
+    amount: payment.amount,
+    payment_date: today,
+    method: payment.method,
+    cash_amount: payment.cash_amount,
+    upi_amount: payment.upi_amount,
+    notes: input.remarks ?? null,
+  });
+
+  if (paymentError) {
+    await supabase.from("memberships").delete().eq("id", newMembership.id);
+    if (input.mode === "current_cycle") {
+      await supabase
+        .from("memberships")
+        .update({
+          end_date: currentEndDate,
+          status: current.status,
+        })
+        .eq("id", current.id);
+    }
+    return { error: paymentError.message };
+  }
+
+  revalidatePath("/dashboard/members");
+  revalidatePath(`/dashboard/members/${input.memberId}`);
+  revalidatePath("/dashboard/seats");
+  revalidatePath("/dashboard/finance");
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+export async function updateMembershipRecord(input: {
+  membershipId: string;
+  memberId: string;
+  startDate: string;
+  endDate: string;
+  amountPaid: number;
+  batch: BatchOption;
+  paymentDate: string;
+  paymentMethod: PaymentMethod;
+  cashAmount?: number;
+  upiAmount?: number;
+  remarks?: string;
+}) {
+  if (!isSupabaseConfigured()) return { error: DEMO_ERROR };
+  if (!isBatchOption(input.batch)) return { error: "Invalid batch selected" };
+
+  if (!input.startDate || !input.endDate) {
+    return { error: "Start and end dates are required" };
+  }
+  if (input.endDate <= input.startDate) {
+    return { error: "End date must be after start date" };
+  }
+
+  const paymentDetails = normalizePaymentDetails({
+    amount: input.amountPaid,
+    paymentMethod: input.paymentMethod,
+    cashAmount: input.cashAmount,
+    upiAmount: input.upiAmount,
+  });
+  if (paymentDetails.error) return { error: paymentDetails.error };
+  const payment = paymentDetails.payment;
+  if (!payment) return { error: "Failed to normalize payment details" };
+
+  const supabase = await createClient();
+
+  const { data: current, error: currentError } = await supabase
+    .from("memberships")
+    .select("id, member_id, start_date, end_date")
+    .eq("id", input.membershipId)
+    .maybeSingle();
+
+  if (currentError || !current) return { error: "Membership not found" };
+  if (current.member_id !== input.memberId) return { error: "Membership does not belong to the selected member" };
+
+  const { error: membershipError } = await supabase
+    .from("memberships")
+    .update({
+      start_date: input.startDate,
+      end_date: input.endDate,
+      amount_paid: input.amountPaid,
+      batch: input.batch,
+      remarks: input.remarks ?? null,
+    })
+    .eq("id", input.membershipId);
+
+  if (membershipError) return { error: membershipError.message };
+
+  const { data: paymentRow, error: paymentFetchError } = await supabase
+    .from("payments")
+    .select("id")
+    .eq("membership_id", input.membershipId)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (paymentFetchError) return { error: paymentFetchError.message };
+
+  if (paymentRow) {
+    const { error: paymentError } = await supabase
+      .from("payments")
+      .update({
+        amount: payment.amount,
+        payment_date: input.paymentDate,
+        method: payment.method,
+        cash_amount: payment.cash_amount,
+        upi_amount: payment.upi_amount,
+      })
+      .eq("id", paymentRow.id);
+
+    if (paymentError) return { error: paymentError.message };
+  } else {
+    const { error: paymentError } = await supabase.from("payments").insert({
+      membership_id: input.membershipId,
+      amount: payment.amount,
+      payment_date: input.paymentDate,
+      method: payment.method,
+      cash_amount: payment.cash_amount,
+      upi_amount: payment.upi_amount,
+    });
+
+    if (paymentError) return { error: paymentError.message };
+  }
+
+  revalidatePath("/dashboard/members");
+  revalidatePath(`/dashboard/members/${input.memberId}`);
+  revalidatePath("/dashboard/finance");
   revalidatePath("/dashboard");
   return { success: true };
 }

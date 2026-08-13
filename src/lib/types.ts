@@ -42,6 +42,7 @@ export type MembershipRow = {
 };
 
 export type PaymentEntry = {
+  id: string;
   amount: number;
   payment_date: string;
   method: string;
@@ -56,6 +57,7 @@ export type MemberHistoryEntry = {
   duration_months: number;
   amount_paid: number;
   batch: BatchOption | null;
+  seat_code: string | null;
   status: "active" | "expired" | "cancelled";
   remarks: string | null;
   payments: PaymentEntry[];

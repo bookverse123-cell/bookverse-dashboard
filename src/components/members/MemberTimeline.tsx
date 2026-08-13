@@ -1,14 +1,26 @@
-import type { MemberHistoryEntry } from "@/lib/types";
+"use client";
 
-function statusPill(status: MemberHistoryEntry["status"]) {
-  if (status === "active") return "bg-sage/15 text-sage";
-  if (status === "cancelled") return "bg-terracotta/15 text-terracotta";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { PencilLine } from "lucide-react";
+import type { MemberHistoryEntry } from "@/lib/types";
+import { MembershipRecordEditModal } from "@/components/members/MembershipRecordEditModal";
+
+function isUpcoming(m: MemberHistoryEntry) {
+  return new Date(m.start_date) > new Date();
+}
+
+function statusPill(m: MemberHistoryEntry) {
+  if (isUpcoming(m)) return "bg-brass/15 text-brass-soft";
+  if (m.status === "active") return "bg-sage/15 text-sage";
+  if (m.status === "cancelled") return "bg-terracotta/15 text-terracotta";
   return "bg-ink-text/10 text-ink-text/50";
 }
 
-function statusLabel(status: MemberHistoryEntry["status"]) {
-  if (status === "active") return "Active";
-  if (status === "cancelled") return "Cancelled";
+function statusLabel(m: MemberHistoryEntry) {
+  if (isUpcoming(m)) return "Upcoming";
+  if (m.status === "active") return "Active";
+  if (m.status === "cancelled") return "Cancelled";
   return "Expired";
 }
 
@@ -40,7 +52,16 @@ function splitLabel(payment: MemberHistoryEntry["payments"][number]) {
   return `UPI ₹${upiAmount.toLocaleString("en-IN")} + Cash ₹${cashAmount.toLocaleString("en-IN")}`;
 }
 
-export function MemberTimeline({ memberships }: { memberships: MemberHistoryEntry[] }) {
+export function MemberTimeline({
+  memberships,
+  memberId,
+}: {
+  memberships: MemberHistoryEntry[];
+  memberId: string;
+}) {
+  const router = useRouter();
+  const [editingMembership, setEditingMembership] = useState<(MemberHistoryEntry & { member_id: string }) | null>(null);
+
   if (memberships.length === 0) {
     return (
       <p className="py-10 text-center text-sm text-ink-text/40">No membership history found.</p>
@@ -74,9 +95,21 @@ export function MemberTimeline({ memberships }: { memberships: MemberHistoryEntr
                     {durationLabel}
                   </p>
                 </div>
-                <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusPill(m.status)}`}>
-                  {statusLabel(m.status)}
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingMembership({ ...m, member_id: memberId })}
+                    className="inline-flex items-center gap-1 rounded-full border border-ink-line/15 bg-white/80 px-2.5 py-1 text-xs font-medium text-ink-text/60 transition hover:bg-ink-text/5 hover:text-ink-text"
+                    aria-label={`Edit membership from ${fmt(m.start_date)} to ${fmt(m.end_date)}`}
+                    title="Edit record"
+                  >
+                    <PencilLine size={12} />
+                    Edit
+                  </button>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusPill(m)}`}>
+                    {statusLabel(m)}
+                  </span>
+                </div>
               </div>
 
               <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-text/70">
@@ -97,6 +130,18 @@ export function MemberTimeline({ memberships }: { memberships: MemberHistoryEntr
           </div>
         );
       })}
+
+      {editingMembership && (
+        <MembershipRecordEditModal
+          key={editingMembership.membership_id}
+          membership={editingMembership}
+          onClose={() => setEditingMembership(null)}
+          onSaved={() => {
+            setEditingMembership(null);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -6,6 +6,8 @@ import { Topbar } from "@/components/dashboard/Topbar";
 import { MemberTimeline } from "@/components/members/MemberTimeline";
 import { MemberBatchEditor } from "@/components/members/MemberBatchEditor";
 import { MemberDetailActions } from "@/components/members/MemberDetailActions";
+import { MemberConversionAction } from "@/components/members/MemberConversionAction";
+import { getSeatStatuses } from "@/lib/data";
 
 export default async function MemberDetailPage({
   params,
@@ -13,7 +15,7 @@ export default async function MemberDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const detail = await getMemberDetail(id);
+  const [detail, seats] = await Promise.all([getMemberDetail(id), getSeatStatuses()]);
   if (!detail) notFound();
 
   const totalPaid = detail.memberships.reduce((sum, m) => sum + m.amount_paid, 0);
@@ -28,7 +30,9 @@ export default async function MemberDetailPage({
     : "—";
 
   const currentStatusLabel = latestMembership
-    ? latestMembership.status === "active"
+    ? new Date(latestMembership.start_date) > new Date()
+      ? "Upcoming"
+      : latestMembership.status === "active"
       ? "Active"
       : latestMembership.status === "cancelled"
       ? "Cancelled"
@@ -36,10 +40,14 @@ export default async function MemberDetailPage({
     : "—";
 
   const currentStatusClass = latestMembership?.status === "active"
-    ? "bg-sage/15 text-sage"
+    ? new Date(latestMembership.start_date) > new Date()
+      ? "bg-brass/15 text-brass-soft"
+      : "bg-sage/15 text-sage"
     : latestMembership?.status === "cancelled"
     ? "bg-terracotta/15 text-terracotta"
     : "bg-ink-text/10 text-ink-text/50";
+  const availableSeats = seats.seats.filter((seat) => seat.occupancy_status === "available");
+  const currentSeatLabel = latestMembership?.seat_code ?? "Unassigned";
 
   return (
     <>
@@ -80,16 +88,39 @@ export default async function MemberDetailPage({
               </span>
             )}
           </div>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <span className="rounded-full border border-ink-line/10 bg-white px-3 py-1.5 text-xs font-mono uppercase tracking-wider text-ink-text/50">
+              Seat No. {currentSeatLabel}
+            </span>
+            <span className={`rounded-full px-3 py-1.5 text-xs font-medium ${currentStatusClass}`}>
+              {currentStatusLabel}
+            </span>
+          </div>
           <p className="mt-2 text-xs font-mono uppercase tracking-wider text-ink-text/30">
             Member since {joinedLabel}
           </p>
         </div>
 
         {latestMembership && (
-          <MemberBatchEditor
-            membershipId={latestMembership.membership_id}
-            memberId={detail.member_id}
-            initialBatch={latestMembership.batch}
+          <div className="flex flex-wrap gap-3">
+            <MemberBatchEditor
+              membershipId={latestMembership.membership_id}
+              memberId={detail.member_id}
+              initialBatch={latestMembership.batch}
+            />
+          </div>
+        )}
+
+        {latestMembership && (
+          <MemberConversionAction
+            membership={{
+              membership_id: latestMembership.membership_id,
+              member_id: detail.member_id,
+              start_date: latestMembership.start_date,
+              end_date: latestMembership.end_date,
+              batch: latestMembership.batch,
+            }}
+            availableSeats={availableSeats}
           />
         )}
 
@@ -114,6 +145,17 @@ export default async function MemberDetailPage({
           <div className="rounded-xl border border-parchment-line bg-white/60 p-4">
             <div className="flex items-center gap-2 text-ink-text/40">
               <CalendarDays size={15} />
+              <span className="text-xs font-mono uppercase tracking-wider">Current seat</span>
+            </div>
+            <div className="mt-2">
+              <span className="rounded-full bg-ink-text/10 px-2.5 py-1 text-xs font-medium text-ink-text/70">
+                Seat No. {currentSeatLabel}
+              </span>
+            </div>
+          </div>
+          <div className="rounded-xl border border-parchment-line bg-white/60 p-4">
+            <div className="flex items-center gap-2 text-ink-text/40">
+              <CalendarDays size={15} />
               <span className="text-xs font-mono uppercase tracking-wider">Current status</span>
             </div>
             <div className="mt-2">
@@ -129,7 +171,7 @@ export default async function MemberDetailPage({
           <h2 className="mb-6 font-mono text-xs uppercase tracking-wider text-ink-text/40">
             Membership history
           </h2>
-          <MemberTimeline memberships={detail.memberships} />
+          <MemberTimeline memberships={detail.memberships} memberId={detail.member_id} />
         </div>
 
       </div>

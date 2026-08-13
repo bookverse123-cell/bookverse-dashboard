@@ -58,6 +58,10 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
       setError("Select a member first");
       return;
     }
+    if (price === "" || Number(price) <= 0) {
+      setError("Enter a locker price greater than zero");
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -66,7 +70,7 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
       memberId,
       assignedAt,
       durationMonths,
-      price: price === "" ? 0 : Number(price),
+      price: Number(price),
       paymentMethod,
       cashAmount: paymentMethod === "cash_upi" ? Number(cashAmount) : undefined,
       upiAmount: paymentMethod === "cash_upi" ? Number(upiAmount) : undefined,
@@ -91,6 +95,10 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
       setError("Select a member first");
       return;
     }
+    if (price === "" || Number(price) <= 0) {
+      setError("Enter a locker price greater than zero");
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -99,7 +107,7 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
       memberId,
       assignedAt,
       durationMonths,
-      price: price === "" ? 0 : Number(price),
+      price: Number(price),
       paymentMethod,
       cashAmount: paymentMethod === "cash_upi" ? Number(cashAmount) : undefined,
       upiAmount: paymentMethod === "cash_upi" ? Number(upiAmount) : undefined,

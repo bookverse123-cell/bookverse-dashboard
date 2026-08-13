@@ -26,6 +26,9 @@ function normalizeLockerPayment(input: {
   if (!Number.isFinite(price) || price < 0) {
     return { error: "Locker price must be zero or greater" };
   }
+  if (price <= 0) {
+    return { error: "Locker price must be greater than zero" };
+  }
 
   if (input.paymentMethod !== "cash_upi") {
     return {
