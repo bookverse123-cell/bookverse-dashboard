@@ -509,6 +509,7 @@ export async function updateMembershipRecord(input: {
 export async function pauseMembership(input: {
   membershipId: string;
   memberId: string;
+  pausedAt?: string;
 }) {
   if (!isSupabaseConfigured()) return { error: DEMO_ERROR };
 
@@ -525,10 +526,11 @@ export async function pauseMembership(input: {
   if (current.status !== "active") return { error: "Only active memberships can be paused" };
 
   const today = new Date().toISOString().slice(0, 10);
+  const pausedAt = input.pausedAt ?? today;
 
   const { error: updateError } = await supabase
     .from("memberships")
-    .update({ status: "paused", paused_at: today, seat_id: null })
+    .update({ status: "paused", paused_at: pausedAt, seat_id: null })
     .eq("id", input.membershipId);
 
   if (updateError) return { error: updateError.message };
@@ -536,7 +538,7 @@ export async function pauseMembership(input: {
   await supabase.from("membership_events").insert({
     membership_id: input.membershipId,
     event_type: "paused",
-    event_date: today,
+    event_date: pausedAt,
   });
 
   revalidatePath("/dashboard/members");
@@ -579,7 +581,7 @@ export async function resumeMembership(input: {
   const today = new Date().toISOString().slice(0, 10);
   const pausedDate = new Date(current.paused_at);
   const todayDate = new Date(today);
-  const daysPaused = Math.round((todayDate.getTime() - pausedDate.getTime()) / 86400000);
+  const daysPaused = Math.max(0, Math.round((todayDate.getTime() - pausedDate.getTime()) / 86400000));
 
   const newEndDate = addDaysToIsoDate(current.end_date, daysPaused);
   const newTotalPausedDays = (current.total_paused_days ?? 0) + daysPaused;

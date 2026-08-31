@@ -13,9 +13,31 @@ type MemberOption = {
   seat_code: string;
 };
 type LockerPaymentMethod = "cash" | "upi" | "cash_upi";
-type LockerDuration = 1 | 3;
+type LockerDuration = 1 | 3 | "custom";
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
+
+function computeValidTill(startDate: string, durationMonths: 1 | 3) {
+  const [year, month, day] = startDate.split("-").map(Number);
+  const targetMonth = month - 1 + durationMonths;
+  const lastDayOfTarget = new Date(Date.UTC(year, targetMonth + 1, 0)).getUTCDate();
+  const clampedDay = Math.min(day, lastDayOfTarget);
+  return new Date(Date.UTC(year, targetMonth, clampedDay)).toISOString().slice(0, 10);
+}
+
+function isCustomValidity(locker: LockerStatus) {
+  if (locker.duration_months !== 1 && locker.duration_months !== 3) return false;
+  if (!locker.assigned_at || !locker.valid_till) return false;
+  return locker.valid_till !== computeValidTill(locker.assigned_at, locker.duration_months);
+}
+
+function formatValidityLabel(durationMonths: LockerStatus["duration_months"] | null, validTill: string | null) {
+  if (durationMonths === 1 || durationMonths === 3) {
+    return `${durationMonths} month${durationMonths > 1 ? "s" : ""}${validTill ? ` · till ${new Date(validTill).toLocaleDateString("en-IN")}` : ""}`;
+  }
+
+  return `Custom${validTill ? ` · till ${new Date(validTill).toLocaleDateString("en-IN")}` : ""}`;
+}
 
 export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; members: MemberOption[] }) {
   const [selected, setSelected] = useState<LockerStatus | null>(null);
@@ -24,6 +46,7 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
   const [showMemberOptions, setShowMemberOptions] = useState(false);
   const [assignedAt, setAssignedAt] = useState(todayStr());
   const [durationMonths, setDurationMonths] = useState<LockerDuration>(1);
+  const [customValidTill, setCustomValidTill] = useState(todayStr());
   const [price, setPrice] = useState<number | "">("");
   const [paymentMethod, setPaymentMethod] = useState<LockerPaymentMethod>("cash");
   const [cashAmount, setCashAmount] = useState<number | "">("");
@@ -69,7 +92,8 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
       lockerId: selected.locker_id,
       memberId,
       assignedAt,
-      durationMonths,
+      durationMonths: durationMonths === "custom" ? 1 : durationMonths,
+      validTill: durationMonths === "custom" ? customValidTill : undefined,
       price: Number(price),
       paymentMethod,
       cashAmount: paymentMethod === "cash_upi" ? Number(cashAmount) : undefined,
@@ -106,7 +130,8 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
       allocationId: selected.allocation_id,
       memberId,
       assignedAt,
-      durationMonths,
+      durationMonths: durationMonths === "custom" ? 1 : durationMonths,
+      validTill: durationMonths === "custom" ? customValidTill : undefined,
       price: Number(price),
       paymentMethod,
       cashAmount: paymentMethod === "cash_upi" ? Number(cashAmount) : undefined,
@@ -177,7 +202,10 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
                   setError(null);
                   setIsEditing(false);
                   setAssignedAt(locker.assigned_at ?? todayStr());
-                  setDurationMonths(locker.duration_months ?? 1);
+                  setDurationMonths(
+                    isCustomValidity(locker) ? "custom" : (locker.duration_months === 1 || locker.duration_months === 3 ? locker.duration_months : 1),
+                  );
+                  setCustomValidTill(locker.valid_till ?? todayStr());
                   setPrice(locker.price ?? "");
                   setPaymentMethod(locker.payment_method ?? "cash");
                   setCashAmount(locker.cash_amount ?? "");
@@ -189,6 +217,7 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
                     setMemberQuery("");
                     setPrice("");
                     setDurationMonths(1);
+                    setCustomValidTill(todayStr());
                     setPaymentMethod("cash");
                     setCashAmount("");
                     setUpiAmount("");
@@ -251,8 +280,10 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
                       Allocated on {selected.assigned_at ? new Date(selected.assigned_at).toLocaleDateString("en-IN") : "—"}
                     </p>
                     <p className="mt-1 text-xs text-ink-text/45">
-                      Validity: {selected.duration_months ?? 1} month{(selected.duration_months ?? 1) > 1 ? "s" : ""}
-                      {selected.valid_till ? ` · till ${new Date(selected.valid_till).toLocaleDateString("en-IN")}` : ""}
+                      Validity:{" "}
+                      {isCustomValidity(selected)
+                        ? formatValidityLabel(null, selected.valid_till)
+                        : formatValidityLabel(selected.duration_months, selected.valid_till)}
                     </p>
                     <p className="mt-1 text-xs text-ink-text/45">
                       Price: ₹{Number(selected.price ?? 0).toLocaleString("en-IN")}
@@ -347,7 +378,13 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
                     <input
                       type="date"
                       value={assignedAt}
-                      onChange={(event) => setAssignedAt(event.target.value)}
+                      onChange={(event) => {
+                        const nextAssignedAt = event.target.value;
+                        setAssignedAt(nextAssignedAt);
+                        if (durationMonths === "custom" && customValidTill < nextAssignedAt) {
+                          setCustomValidTill(nextAssignedAt);
+                        }
+                      }}
                       className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
                     />
                   </div>
@@ -356,13 +393,33 @@ export function LockersBoard({ lockers, members }: { lockers: LockerStatus[]; me
                     <label className="mb-1.5 block text-xs font-mono uppercase tracking-wider text-ink-text/50">Validity</label>
                     <select
                       value={durationMonths}
-                      onChange={(event) => setDurationMonths(Number(event.target.value) as LockerDuration)}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setDurationMonths(value === "custom" ? "custom" : (Number(value) as 1 | 3));
+                        if (value === "custom" && !customValidTill) {
+                          setCustomValidTill(assignedAt);
+                        }
+                      }}
                       className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
                     >
                       <option value={1}>1 Month</option>
                       <option value={3}>3 Months</option>
+                      <option value="custom">Custom date</option>
                     </select>
                   </div>
+
+                  {durationMonths === "custom" && (
+                    <div>
+                      <label className="mb-1.5 block text-xs font-mono uppercase tracking-wider text-ink-text/50">Valid till date</label>
+                      <input
+                        type="date"
+                        min={assignedAt}
+                        value={customValidTill}
+                        onChange={(event) => setCustomValidTill(event.target.value)}
+                        className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
+                      />
+                    </div>
+                  )}
 
                   <div>
                     <label className="mb-1.5 block text-xs font-mono uppercase tracking-wider text-ink-text/50">Price (₹)</label>

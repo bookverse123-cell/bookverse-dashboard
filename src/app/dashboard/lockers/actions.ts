@@ -16,6 +16,47 @@ function computeValidTill(startDate: string, durationMonths: LockerDuration) {
   return new Date(Date.UTC(year, targetMonth, clampedDay)).toISOString().slice(0, 10);
 }
 
+function resolveLockerValidity(input: {
+  assignedAt: string;
+  durationMonths: LockerDuration | null;
+  validTill?: string;
+}) {
+  if (input.durationMonths === 1 || input.durationMonths === 3) {
+    const computedValidTill = computeValidTill(input.assignedAt, input.durationMonths);
+    const customValidTill = input.validTill?.trim();
+
+    if (customValidTill) {
+      if (customValidTill < input.assignedAt) {
+        return { error: "Custom valid till date must be on or after the assigned date" };
+      }
+      if (customValidTill !== computedValidTill) {
+        return {
+          durationMonths: input.durationMonths,
+          validTill: customValidTill,
+        };
+      }
+    }
+
+    return {
+      durationMonths: input.durationMonths,
+      validTill: computedValidTill,
+    };
+  }
+
+  const validTill = input.validTill?.trim();
+  if (!validTill) {
+    return { error: "Select a custom valid till date" };
+  }
+  if (validTill < input.assignedAt) {
+    return { error: "Custom valid till date must be on or after the assigned date" };
+  }
+
+  return {
+    durationMonths: 1 as const,
+    validTill,
+  };
+}
+
 function normalizeLockerPayment(input: {
   price: number;
   paymentMethod: LockerPaymentMethod;
@@ -77,7 +118,8 @@ export async function allocateLocker(input: {
   lockerId: string;
   memberId: string;
   assignedAt: string;
-  durationMonths: LockerDuration;
+  durationMonths: LockerDuration | null;
+  validTill?: string;
   price: number;
   paymentMethod: LockerPaymentMethod;
   cashAmount?: number;
@@ -85,9 +127,14 @@ export async function allocateLocker(input: {
   notes?: string;
 }) {
   if (!isSupabaseConfigured()) return { error: DEMO_ERROR };
-  if (![1, 3].includes(input.durationMonths)) {
-    return { error: "Locker validity must be 1 month or 3 months" };
-  }
+
+  const validity = resolveLockerValidity({
+    assignedAt: input.assignedAt,
+    durationMonths: input.durationMonths,
+    validTill: input.validTill,
+  });
+  if ("error" in validity) return { error: validity.error };
+
   const paymentDetails = normalizeLockerPayment({
     price: input.price,
     paymentMethod: input.paymentMethod,
@@ -117,14 +164,12 @@ export async function allocateLocker(input: {
 
   if (memberError || !member) return { error: "Member not found" };
 
-  const validTill = computeValidTill(input.assignedAt, input.durationMonths);
-
   const { error } = await supabase.from("locker_allocations").insert({
     locker_id: input.lockerId,
     member_id: input.memberId,
     assigned_at: input.assignedAt,
-    duration_months: input.durationMonths,
-    valid_till: validTill,
+    duration_months: validity.durationMonths,
+    valid_till: validity.validTill,
     price: payment.price,
     payment_method: payment.payment_method,
     cash_amount: payment.cash_amount,
@@ -143,7 +188,8 @@ export async function updateLockerAllocation(input: {
   allocationId: string;
   memberId: string;
   assignedAt: string;
-  durationMonths: LockerDuration;
+  durationMonths: LockerDuration | null;
+  validTill?: string;
   price: number;
   paymentMethod: LockerPaymentMethod;
   cashAmount?: number;
@@ -151,9 +197,14 @@ export async function updateLockerAllocation(input: {
   notes?: string;
 }) {
   if (!isSupabaseConfigured()) return { error: DEMO_ERROR };
-  if (![1, 3].includes(input.durationMonths)) {
-    return { error: "Locker validity must be 1 month or 3 months" };
-  }
+
+  const validity = resolveLockerValidity({
+    assignedAt: input.assignedAt,
+    durationMonths: input.durationMonths,
+    validTill: input.validTill,
+  });
+  if ("error" in validity) return { error: validity.error };
+
   const paymentDetails = normalizeLockerPayment({
     price: input.price,
     paymentMethod: input.paymentMethod,
@@ -164,8 +215,6 @@ export async function updateLockerAllocation(input: {
   const payment = paymentDetails.payment;
   if (!payment) return { error: "Failed to normalize locker payment" };
 
-  const validTill = computeValidTill(input.assignedAt, input.durationMonths);
-
   const supabase = await createClient();
 
   const { error } = await supabase
@@ -173,8 +222,8 @@ export async function updateLockerAllocation(input: {
     .update({
       member_id: input.memberId,
       assigned_at: input.assignedAt,
-      duration_months: input.durationMonths,
-      valid_till: validTill,
+      duration_months: validity.durationMonths,
+      valid_till: validity.validTill,
       price: payment.price,
       payment_method: payment.payment_method,
       cash_amount: payment.cash_amount,

@@ -208,7 +208,7 @@ create table if not exists locker_allocations (
   locker_id uuid not null references lockers(id) on delete cascade,
   member_id uuid not null references members(id) on delete cascade,
   assigned_at date not null default current_date,
-  duration_months integer not null default 1 check (duration_months in (1, 3)),
+  duration_months integer default 1 check (duration_months in (1, 3) or duration_months is null),
   valid_till date not null default (current_date + interval '1 month')::date,
   price numeric(10, 2) not null default 0,
   payment_method text not null default 'cash' check (payment_method in ('cash', 'upi', 'cash_upi')),
@@ -223,7 +223,8 @@ create table if not exists locker_allocations (
     (payment_method = 'cash_upi' and cash_amount is not null and upi_amount is not null and cash_amount > 0 and upi_amount > 0 and (cash_amount + upi_amount = price))
     or
     (payment_method <> 'cash_upi' and cash_amount is null and upi_amount is null)
-  )
+  ),
+  check (valid_till >= assigned_at)
 );
 
 alter table locker_allocations
@@ -233,7 +234,10 @@ alter table locker_allocations
   add column if not exists payment_method text not null default 'cash';
 
 alter table locker_allocations
-  add column if not exists duration_months integer not null default 1;
+  add column if not exists duration_months integer default 1;
+
+alter table locker_allocations
+  alter column duration_months drop not null;
 
 alter table locker_allocations
   add column if not exists valid_till date not null default (current_date + interval '1 month')::date;
@@ -271,7 +275,15 @@ begin
   ) then
     alter table locker_allocations
       add constraint locker_allocations_duration_allowed
-      check (duration_months in (1, 3));
+      check (duration_months in (1, 3) or duration_months is null);
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint where conname = 'locker_allocations_valid_till_after_assigned_at'
+  ) then
+    alter table locker_allocations
+      add constraint locker_allocations_valid_till_after_assigned_at
+      check (valid_till >= assigned_at);
   end if;
 end $$;
 
