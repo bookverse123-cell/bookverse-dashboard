@@ -18,6 +18,7 @@ const DURATION_OPTIONS = [
 ] as const;
 
 type TenureMode = "duration" | "custom";
+type UnassignedLocation = "reading_commons" | "nook";
 
 function addDaysToIsoDate(start: string, days: number) {
   const [year, month, day] = start.split("-").map(Number);
@@ -47,6 +48,7 @@ export function AddUnassignedMemberModal({
   const [amount, setAmount] = useState(0);
   const [cashAmount, setCashAmount] = useState(0);
   const [upiAmount, setUpiAmount] = useState(0);
+  const [unassignedLocation, setUnassignedLocation] = useState<UnassignedLocation>("reading_commons");
   const [remarks, setRemarks] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +90,7 @@ export function AddUnassignedMemberModal({
         cashAmount: paymentMethod === "upi_cash" ? cashAmount : undefined,
         upiAmount: paymentMethod === "upi_cash" ? upiAmount : undefined,
         remarks: remarks || undefined,
+        unassignedLocation,
       });
     } finally {
       setLoading(false);
@@ -115,9 +118,9 @@ export function AddUnassignedMemberModal({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 12 }}
         transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-        className="fixed left-1/2 top-1/2 z-[70] w-[92%] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-parchment p-6 shadow-2xl sm:p-8"
+        className="fixed left-1/2 top-1/2 z-[70] flex max-h-[calc(100vh-2rem)] w-[80vw] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-parchment shadow-2xl"
       >
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between px-6 pb-0 pt-6 sm:px-8">
           <div>
             <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink-text/40">
               Unassigned membership
@@ -132,7 +135,7 @@ export function AddUnassignedMemberModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <form onSubmit={handleSubmit} className="mt-6 flex-1 space-y-4 overflow-y-auto px-6 pb-6 sm:px-8 sm:pb-8">
           <div>
             <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
               Member name
@@ -196,6 +199,31 @@ export function AddUnassignedMemberModal({
                 />
                 <span className="text-sm text-ink-text">Custom dates</span>
               </label>
+            </div>
+          </div>
+
+          <div className="space-y-2 rounded-lg border border-parchment-line/80 bg-white/50 p-3">
+            <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50">
+              Unassigned location
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { value: "reading_commons", label: "Reading Commons" },
+                { value: "nook", label: "Nook" },
+              ] as const).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setUnassignedLocation(option.value)}
+                  className={`rounded-lg border px-3 py-2 text-sm transition ${
+                    unassignedLocation === option.value
+                      ? "border-brass bg-brass/10 text-brass-soft"
+                      : "border-parchment-line bg-white/70 text-ink-text/70 hover:bg-ink-text/5"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
             </div>
           </div>
 

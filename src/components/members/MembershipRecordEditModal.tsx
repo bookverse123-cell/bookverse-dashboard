@@ -9,6 +9,7 @@ import { updateMembershipRecord } from "@/app/dashboard/members/actions";
 import { DatePopover } from "@/components/ui/DatePopover";
 
 type PaymentMethod = "cash" | "upi" | "card" | "bank_transfer" | "other" | "upi_cash";
+type UnassignedLocation = "reading_commons" | "nook";
 
 export function MembershipRecordEditModal({
   membership,
@@ -30,6 +31,9 @@ export function MembershipRecordEditModal({
   );
   const [cashAmount, setCashAmount] = useState<number | "">(primaryPayment?.cash_amount ?? "");
   const [upiAmount, setUpiAmount] = useState<number | "">(primaryPayment?.upi_amount ?? "");
+  const [unassignedLocation, setUnassignedLocation] = useState<UnassignedLocation>(
+    membership.unassigned_location ?? "reading_commons"
+  );
   const [remarks, setRemarks] = useState(membership.remarks ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +77,7 @@ export function MembershipRecordEditModal({
       cashAmount: paymentMethod === "upi_cash" ? Number(cashAmount) : undefined,
       upiAmount: paymentMethod === "upi_cash" ? Number(upiAmount) : undefined,
       remarks: remarks || undefined,
+      unassignedLocation: membership.seat_code ? undefined : unassignedLocation,
     });
 
     setLoading(false);
@@ -215,6 +220,33 @@ export function MembershipRecordEditModal({
                   onChange={(event) => setUpiAmount(event.target.value === "" ? "" : Number(event.target.value))}
                   className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
                 />
+              </div>
+            </div>
+          )}
+
+          {!membership.seat_code && (
+            <div className="space-y-2 rounded-lg border border-parchment-line/80 bg-white/50 p-3">
+              <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50">
+                Unassigned location
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { value: "reading_commons", label: "Reading Commons" },
+                  { value: "nook", label: "Nook" },
+                ] as const).map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setUnassignedLocation(option.value)}
+                    className={`rounded-lg border px-3 py-2 text-sm transition ${
+                      unassignedLocation === option.value
+                        ? "border-brass bg-brass/10 text-brass-soft"
+                        : "border-parchment-line bg-white/70 text-ink-text/70 hover:bg-ink-text/5"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
               </div>
             </div>
           )}

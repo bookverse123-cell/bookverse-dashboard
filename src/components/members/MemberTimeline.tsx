@@ -54,6 +54,10 @@ function splitLabel(payment: MemberHistoryEntry["payments"][number]) {
   return `UPI ₹${upiAmount.toLocaleString("en-IN")} + Cash ₹${cashAmount.toLocaleString("en-IN")}`;
 }
 
+function locationLabel(location: MemberHistoryEntry["unassigned_location"]) {
+  return location === "nook" ? "Nook" : "Reading Commons";
+}
+
 export function MemberTimeline({
   memberships,
   memberId,
@@ -117,6 +121,9 @@ export function MemberTimeline({
               <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-text/70">
                 <span>₹{m.amount_paid.toLocaleString("en-IN")}</span>
                 {m.batch && <span className="text-ink-text/60">· {m.batch}</span>}
+                {!m.seat_code && (
+                  <span className="text-ink-text/60">· {locationLabel(m.unassigned_location)}</span>
+                )}
                 {primaryPayment && (
                   <span className="text-ink-text/40">· {methodLabel(primaryPayment.method)}</span>
                 )}

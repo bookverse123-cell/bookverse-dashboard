@@ -91,6 +91,7 @@ export type AddUnassignedMembershipInput = {
   cashAmount?: number;
   upiAmount?: number;
   remarks?: string;
+  unassignedLocation: "reading_commons" | "nook";
 };
 
 export async function addUnassignedMembership(input: AddUnassignedMembershipInput) {
@@ -152,6 +153,7 @@ export async function addUnassignedMembership(input: AddUnassignedMembershipInpu
     .insert({
       member_id: memberId,
       seat_id: null,
+      unassigned_location: input.unassignedLocation,
       start_date: input.startDate,
       end_date: endDate,
       amount_paid: input.amountPaid,
@@ -418,6 +420,7 @@ export async function updateMembershipRecord(input: {
   cashAmount?: number;
   upiAmount?: number;
   remarks?: string;
+  unassignedLocation?: "reading_commons" | "nook";
 }) {
   if (!isSupabaseConfigured()) return { error: DEMO_ERROR };
   if (!isBatchOption(input.batch)) return { error: "Invalid batch selected" };
@@ -443,7 +446,7 @@ export async function updateMembershipRecord(input: {
 
   const { data: current, error: currentError } = await supabase
     .from("memberships")
-    .select("id, member_id, start_date, end_date")
+    .select("id, member_id, start_date, end_date, seat_id, unassigned_location")
     .eq("id", input.membershipId)
     .maybeSingle();
 
@@ -458,6 +461,9 @@ export async function updateMembershipRecord(input: {
       amount_paid: input.amountPaid,
       batch: input.batch,
       remarks: input.remarks ?? null,
+      unassigned_location: current.seat_id
+        ? (current.unassigned_location ?? "reading_commons")
+        : (input.unassignedLocation ?? current.unassigned_location ?? "reading_commons"),
     })
     .eq("id", input.membershipId);
 
@@ -654,6 +660,22 @@ export async function updateMemberProfile(input: {
   revalidatePath("/dashboard/members");
   revalidatePath(`/dashboard/members/${input.memberId}`);
   revalidatePath("/dashboard/seats");
+  revalidatePath("/dashboard/lockers");
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
+export async function deleteMemberProfile(input: { memberId: string }) {
+  if (!isSupabaseConfigured()) return { error: DEMO_ERROR };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("members").delete().eq("id", input.memberId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard/members");
+  revalidatePath("/dashboard/seats");
+  revalidatePath("/dashboard/finance");
   revalidatePath("/dashboard/lockers");
   revalidatePath("/dashboard");
   return { success: true };

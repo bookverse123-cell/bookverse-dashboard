@@ -16,6 +16,10 @@ import { AddUnassignedMemberModal } from "@/components/members/AddUnassignedMemb
 const FILTERS = ["All", "Active", "Paused", "Renewal due", "Expired", "Unassigned", "Daily Pass"] as const;
 type Filter = (typeof FILTERS)[number];
 
+function unassignedLocationLabel(location: MembershipRow["unassigned_location"]) {
+  return location === "nook" ? "Nook" : "Reading Commons";
+}
+
 type DisplayRow =
   | { kind: "membership"; data: MembershipRow }
   | { kind: "daily_pass"; data: DailyPassRow };
@@ -289,7 +293,9 @@ export function MembersTable({
                     : row_.status !== "active"
                     ? "Only active memberships can change seats"
                     : "No unassigned seats available";
-                const seatLabel = row_.is_unassigned ? "No seat assigned" : `Seat No. ${row_.seat_code}`;
+                const seatLabel = row_.is_unassigned
+                  ? `No seat assigned · ${unassignedLocationLabel(row_.unassigned_location)}`
+                  : `Seat No. ${row_.seat_code}`;
                 return (
                   <motion.tr
                     key={row_.membership_id}

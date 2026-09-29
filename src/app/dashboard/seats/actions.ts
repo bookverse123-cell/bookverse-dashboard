@@ -345,7 +345,7 @@ export async function changeSeat(input: ChangeSeatInput) {
 
   const { data: current, error: membershipError } = await supabase
     .from("memberships")
-    .select("id, member_id, seat_id, status")
+    .select("id, member_id, seat_id, status, unassigned_location")
     .eq("id", input.membershipId)
     .single();
 
@@ -426,7 +426,7 @@ export async function unassignSeatFromMembership(input: { membershipId: string }
 
   const { error: updateError } = await supabase
     .from("memberships")
-    .update({ seat_id: null })
+    .update({ seat_id: null, unassigned_location: "reading_commons" })
     .eq("id", input.membershipId)
     .eq("status", "active");
 

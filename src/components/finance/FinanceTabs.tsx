@@ -9,7 +9,13 @@ import { ExpenseBreakdownChart } from "./ExpenseBreakdownChart";
 import { LedgerTable } from "./LedgerTable";
 import { CafeteriaAnalyticsCard } from "./CafeteriaAnalyticsCard";
 import { MembershipAnalyticsCard } from "./MembershipAnalyticsCard";
-import type { LedgerRow, LockerAllocationFinanceRow, MembershipMonthRow, MembershipPaymentRow } from "@/lib/types";
+import type {
+  FinanceBreakoutRow,
+  LedgerRow,
+  LockerAllocationFinanceRow,
+  MembershipMonthRow,
+  MembershipPaymentRow,
+} from "@/lib/types";
 
 const EXPENSE_CATEGORIES = [
   "Groceries & Snacks", "Utilities", "Maintenance", "Staff Wages", "Marketing", "Other",
@@ -94,6 +100,7 @@ function filterRowsByCycle<T extends { date: string }>(rows: T[], activeKey: str
 
 export function FinanceTabs({
   monthly,
+  breakoutMonthly,
   expenses,
   sales,
   expenditures,
@@ -102,6 +109,7 @@ export function FinanceTabs({
   lockerAllocations,
 }: {
   monthly: MonthRow[];
+  breakoutMonthly: FinanceBreakoutRow[];
   expenses: LedgerRow[];
   sales: LedgerRow[];
   expenditures: LedgerRow[];
@@ -111,7 +119,7 @@ export function FinanceTabs({
 }) {
   const [activeKey, setActiveKey] = useState<string>(OVERALL_KEY);
   const [screen, setScreen] = useState<"hero" | "details">("hero");
-  const [detailsTab, setDetailsTab] = useState<"finance" | "graphs" | "ledger">("finance");
+  const [detailsTab, setDetailsTab] = useState<"finance" | "graphs" | "ledger" | "breakout">("finance");
 
   function openCycleDetails(key: string) {
     setActiveKey(key);
@@ -236,6 +244,22 @@ export function FinanceTabs({
     const row = membershipMonthly.find((item) => item.monthKey === activeKey);
     return row ? [row] : [zeroMembershipMonth(activeKey)];
   }, [membershipMonthly, activeKey]);
+
+  const filteredBreakoutMonthly = useMemo(() => {
+    if (activeKey === OVERALL_KEY) return breakoutMonthly;
+    return breakoutMonthly.filter((item) => item.monthKey === activeKey);
+  }, [breakoutMonthly, activeKey]);
+
+  const breakoutTotals = useMemo(() => {
+    return filteredBreakoutMonthly.reduce(
+      (sum, row) => ({
+        cash: sum.cash + row.cash,
+        upi: sum.upi + row.upi,
+        total: sum.total + row.total,
+      }),
+      { cash: 0, upi: 0, total: 0 }
+    );
+  }, [filteredBreakoutMonthly]);
 
   const summary = useMemo(() => {
     const membershipRevenue = filteredMonthly.reduce((sum, row) => sum + row.membershipRevenue, 0);
@@ -490,6 +514,17 @@ export function FinanceTabs({
             >
               Payment Ledger
             </button>
+            <button
+              type="button"
+              onClick={() => setDetailsTab("breakout")}
+              className={`rounded-md px-4 py-2 text-sm font-medium transition ${
+                detailsTab === "breakout"
+                  ? "bg-white text-ink-text shadow-sm"
+                  : "text-ink-text/55 hover:text-ink-text"
+              }`}
+            >
+              Breakout
+            </button>
           </div>
 
           {detailsTab === "finance" && (
@@ -623,6 +658,70 @@ export function FinanceTabs({
               showChart={false}
               showLedger
             />
+          )}
+
+          {detailsTab === "breakout" && (
+            <motion.div
+              key={activeKey}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25 }}
+              className="rounded-2xl border border-ink-line/10 bg-white/60 p-5 sm:p-6"
+            >
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-display text-lg text-ink-text">Breakout · {selectedLabel}</h3>
+                  <p className="text-sm text-ink-text/50">
+                    Reading Commons, Nook, Locker, and Cafe split by cash and UPI for the selected billing cycle.
+                  </p>
+                </div>
+                <div className="rounded-full border border-ink-line/10 bg-white px-3 py-1.5 text-xs font-medium text-ink-text/60">
+                  {activeKey === OVERALL_KEY ? "All months" : selectedLabel}
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded-xl border border-ink-line/10 bg-white/80">
+                <table className="w-full min-w-[780px] text-sm">
+                  <thead>
+                    <tr className="border-b border-ink-line/10 bg-ink-text/5 text-left">
+                      <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider text-ink-text/45">Month</th>
+                      <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider text-ink-text/45">Category</th>
+                      <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider text-ink-text/45">Total</th>
+                      <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider text-ink-text/45">Cash</th>
+                      <th className="px-4 py-3 font-mono text-xs uppercase tracking-wider text-ink-text/45">UPI</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-ink-line/5">
+                    {(filteredBreakoutMonthly.length > 0 ? filteredBreakoutMonthly : breakoutMonthly).map((row) => (
+                      <tr key={`${row.monthKey}-${row.category}`} className="hover:bg-ink-text/5">
+                        <td className="px-4 py-3 font-medium text-ink-text">{row.month}</td>
+                        <td className="px-4 py-3 text-ink-text">{row.category}</td>
+                        <td className="px-4 py-3 font-medium text-ink-text">₹{row.total.toLocaleString("en-IN")}</td>
+                        <td className="px-4 py-3 text-ink-text">₹{row.cash.toLocaleString("en-IN")}</td>
+                        <td className="px-4 py-3 text-ink-text">₹{row.upi.toLocaleString("en-IN")}</td>
+                      </tr>
+                    ))}
+                    {filteredBreakoutMonthly.length > 0 && (
+                      <tr className="border-t-2 border-ink-line/15 bg-brass/5 font-medium">
+                        <td className="px-4 py-3 text-ink-text" colSpan={2}>
+                          Total
+                        </td>
+                        <td className="px-4 py-3 text-ink-text">₹{breakoutTotals.total.toLocaleString("en-IN")}</td>
+                        <td className="px-4 py-3 text-ink-text">₹{breakoutTotals.cash.toLocaleString("en-IN")}</td>
+                        <td className="px-4 py-3 text-ink-text">₹{breakoutTotals.upi.toLocaleString("en-IN")}</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+                {(filteredBreakoutMonthly.length === 0 && breakoutMonthly.length === 0) && (
+                  <p className="py-8 text-center text-sm text-ink-text/40">No breakout data yet.</p>
+                )}
+              </div>
+
+              <p className="mt-3 text-xs text-ink-text/45">
+                Reading Commons and Nook are split by seat zone. Cash and UPI are payment-method totals, and cafe is tracked separately.
+              </p>
+            </motion.div>
           )}
         </>
       )}

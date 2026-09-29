@@ -6,6 +6,8 @@ import type { LedgerRow } from "@/lib/types";
 
 const SALES_COLOR = "#7FA37A";
 const EXPENSE_COLOR = "#DC2626";
+const CASH_COLOR = "#B45309";
+const UPI_COLOR = "#2563EB";
 
 function pct(value: number) {
   return `${Math.round(value)}%`;
@@ -15,6 +17,27 @@ export function CafeteriaAnalyticsCard({ sales, expenses }: { sales: LedgerRow[]
   const totalSales = sales.reduce((sum, row) => sum + row.amount, 0);
   const totalExpenses = expenses.reduce((sum, row) => sum + row.amount, 0);
   const net = totalSales - totalExpenses;
+
+  const salesCash = sales.reduce((sum, row) => {
+    if (row.payment_method === "cash") return sum + row.amount;
+    if (row.payment_method === "cash_upi") return sum + Number(row.cash_amount ?? 0);
+    return sum;
+  }, 0);
+  const salesUpi = sales.reduce((sum, row) => {
+    if (row.payment_method === "upi" || !row.payment_method) return sum + row.amount;
+    if (row.payment_method === "cash_upi") return sum + Number(row.upi_amount ?? 0);
+    return sum;
+  }, 0);
+  const expensesCash = expenses.reduce((sum, row) => {
+    if (row.payment_method === "cash") return sum + row.amount;
+    if (row.payment_method === "cash_upi") return sum + Number(row.cash_amount ?? 0);
+    return sum;
+  }, 0);
+  const expensesUpi = expenses.reduce((sum, row) => {
+    if (row.payment_method === "upi" || !row.payment_method) return sum + row.amount;
+    if (row.payment_method === "cash_upi") return sum + Number(row.upi_amount ?? 0);
+    return sum;
+  }, 0);
 
   const profitPercent = totalSales > 0 ? Math.max((net / totalSales) * 100, 0) : 0;
   const lossPercent = totalSales > 0 ? Math.max((-net / totalSales) * 100, 0) : 0;
@@ -34,7 +57,7 @@ export function CafeteriaAnalyticsCard({ sales, expenses }: { sales: LedgerRow[]
     >
       <div className="mb-4">
         <h3 className="font-display text-lg text-ink-text">Cafeteria analytics</h3>
-        <p className="text-sm text-ink-text/50">Cafeteria only: sales vs expenses and profit/loss percentage</p>
+        <p className="text-sm text-ink-text/50">Cafeteria only: sales vs expenses, cash/UPI split, and profit/loss percentage</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -84,6 +107,25 @@ export function CafeteriaAnalyticsCard({ sales, expenses }: { sales: LedgerRow[]
             <div className="rounded-xl border border-terracotta/20 bg-terracotta/10 p-3">
               <p className="text-xs font-mono uppercase tracking-wider text-terracotta">Loss %</p>
               <p className="mt-1 text-lg font-medium text-ink-text">{pct(lossPercent)}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="rounded-xl border border-ink-line/10 bg-white/70 p-3">
+              <p className="text-xs font-mono uppercase tracking-wider" style={{ color: CASH_COLOR }}>Sales cash</p>
+              <p className="mt-1 text-lg font-medium text-ink-text">₹{salesCash.toLocaleString("en-IN")}</p>
+            </div>
+            <div className="rounded-xl border border-ink-line/10 bg-white/70 p-3">
+              <p className="text-xs font-mono uppercase tracking-wider" style={{ color: UPI_COLOR }}>Sales UPI</p>
+              <p className="mt-1 text-lg font-medium text-ink-text">₹{salesUpi.toLocaleString("en-IN")}</p>
+            </div>
+            <div className="rounded-xl border border-ink-line/10 bg-white/70 p-3">
+              <p className="text-xs font-mono uppercase tracking-wider" style={{ color: CASH_COLOR }}>Expense cash</p>
+              <p className="mt-1 text-lg font-medium text-ink-text">₹{expensesCash.toLocaleString("en-IN")}</p>
+            </div>
+            <div className="rounded-xl border border-ink-line/10 bg-white/70 p-3">
+              <p className="text-xs font-mono uppercase tracking-wider" style={{ color: UPI_COLOR }}>Expense UPI</p>
+              <p className="mt-1 text-lg font-medium text-ink-text">₹{expensesUpi.toLocaleString("en-IN")}</p>
             </div>
           </div>
 

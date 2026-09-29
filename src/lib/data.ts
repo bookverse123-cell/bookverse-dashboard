@@ -7,6 +7,7 @@ import type {
   LockerStatus,
   MembershipPaymentRow,
   LockerAllocationFinanceRow,
+  FinanceBreakoutRow,
 } from "@/lib/types";
 
 export function isSupabaseConfigured() {
@@ -135,6 +136,36 @@ function resolveLockerAmount(row: {
   return Number(price.toFixed(2));
 }
 
+function resolveCafeteriaPaymentMethod(row: {
+  payment_method: string | null;
+  cash_amount: number | null;
+  upi_amount: number | null;
+}): Pick<LedgerRow, "payment_method" | "cash_amount" | "upi_amount"> {
+  const paymentMethod: LedgerRow["payment_method"] =
+    row.payment_method === "cash" || row.payment_method === "upi" || row.payment_method === "cash_upi"
+      ? row.payment_method
+      : "upi";
+
+  return {
+    payment_method: paymentMethod,
+    cash_amount: row.cash_amount !== null ? Number(row.cash_amount) : null,
+    upi_amount: row.upi_amount !== null ? Number(row.upi_amount) : null,
+  };
+}
+
+function resolveMonthRow(map: Map<string, FinanceBreakoutRow[]>, dateStr: string) {
+  const { key, label } = billingPeriod(dateStr);
+  if (!map.has(key)) {
+    map.set(key, [
+      { monthKey: key, month: label, category: "Reading Commons", cash: 0, upi: 0, total: 0 },
+      { monthKey: key, month: label, category: "Nook", cash: 0, upi: 0, total: 0 },
+      { monthKey: key, month: label, category: "Locker", cash: 0, upi: 0, total: 0 },
+      { monthKey: key, month: label, category: "Cafe", cash: 0, upi: 0, total: 0 },
+    ]);
+  }
+  return map.get(key)!;
+}
+
 export async function getFinanceMonthly() {
   const supabase = await createClient();
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -258,7 +289,7 @@ export async function getCafeteriaExpenses(): Promise<{ data: LedgerRow[] }> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("cafeteria_expenses")
-    .select("id, description, category, amount, expense_date")
+    .select("id, description, category, amount, expense_date, payment_method, cash_amount, upi_amount")
     .order("expense_date", { ascending: false })
     .limit(50);
 
@@ -271,6 +302,7 @@ export async function getCafeteriaExpenses(): Promise<{ data: LedgerRow[] }> {
       category: r.category,
       amount: Number(r.amount),
       date: r.expense_date,
+      ...resolveCafeteriaPaymentMethod(r),
     })),
   };
 }
@@ -279,7 +311,7 @@ export async function getCafeteriaSales(): Promise<{ data: LedgerRow[] }> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("cafeteria_sales")
-    .select("id, description, amount, sale_date")
+    .select("id, description, amount, sale_date, payment_method, cash_amount, upi_amount")
     .order("sale_date", { ascending: false })
     .limit(50);
 
@@ -292,6 +324,7 @@ export async function getCafeteriaSales(): Promise<{ data: LedgerRow[] }> {
       category: "Sale",
       amount: Number(r.amount),
       date: r.sale_date,
+      ...resolveCafeteriaPaymentMethod(r),
     })),
   };
 }
@@ -416,6 +449,120 @@ export async function getMembershipPayments() {
   return { data: rows };
 }
 
+export async function getFinanceBreakoutMonthly(): Promise<{ data: FinanceBreakoutRow[] }> {
+  if (!isSupabaseConfigured()) return { data: [] };
+
+  const supabase = await createClient();
+  const [
+    { data: membershipRows, error: membershipError },
+    { data: cafeRows, error: cafeError },
+    { data: dailyPassRows, error: dailyPassError },
+  ] = await Promise.all([
+    supabase
+      .from("payments")
+      .select("payment_date, amount, method, cash_amount, upi_amount, memberships(seat_id, unassigned_location, seats(zone))"),
+    supabase.from("cafeteria_sales").select("sale_date, amount, payment_method, cash_amount, upi_amount"),
+    supabase.from("daily_passes").select("date, amount"),
+  ]);
+
+  if (membershipError || cafeError || dailyPassError) return { data: [] };
+
+  const map = new Map<string, FinanceBreakoutRow[]>();
+
+  function addSplit(
+    entry: FinanceBreakoutRow,
+    paymentMethod: string | null,
+    amount: number,
+    cashAmount: number | null,
+    upiAmount: number | null
+  ) {
+    const addCash = (value: number) => {
+      entry.cash += value;
+      entry.total += value;
+    };
+    const addUpi = (value: number) => {
+      entry.upi += value;
+      entry.total += value;
+    };
+
+    if (paymentMethod === "cash") {
+      addCash(amount);
+      return;
+    }
+
+    if (paymentMethod === "upi" || paymentMethod === "other" || paymentMethod === "card" || paymentMethod === "bank_transfer") {
+      addUpi(amount);
+      return;
+    }
+
+    if (paymentMethod === "upi_cash" || paymentMethod === "cash_upi") {
+      addCash(Number(cashAmount ?? 0));
+      addUpi(Number(upiAmount ?? 0));
+      return;
+    }
+
+    if ((cashAmount ?? 0) > 0 || (upiAmount ?? 0) > 0) {
+      addCash(Number(cashAmount ?? 0));
+      addUpi(Number(upiAmount ?? 0));
+      return;
+    }
+
+    addUpi(amount);
+  }
+
+  for (const row of membershipRows ?? []) {
+    const entries = resolveMonthRow(map, row.payment_date);
+    const membership = Array.isArray(row.memberships) ? row.memberships[0] : row.memberships;
+    const seat = membership && !Array.isArray(membership.seats) ? membership.seats : Array.isArray(membership?.seats) ? membership?.seats[0] : null;
+    const seatId = (membership as { seat_id: string | null } | null)?.seat_id ?? null;
+    const unassignedLocation = (membership as { unassigned_location?: "reading_commons" | "nook" | null } | null)?.unassigned_location ?? "reading_commons";
+    const zone = (seat as { zone: "library" | "lounge" } | null)?.zone;
+
+    if (seatId === null) {
+      if (unassignedLocation === "nook") {
+        addSplit(entries[1], row.method, Number(row.amount), row.cash_amount, row.upi_amount);
+      } else {
+        addSplit(entries[0], row.method, Number(row.amount), row.cash_amount, row.upi_amount);
+      }
+    } else if (zone === "library") {
+      addSplit(entries[0], row.method, Number(row.amount), row.cash_amount, row.upi_amount);
+    }
+    if (zone === "lounge") {
+      addSplit(entries[1], row.method, Number(row.amount), row.cash_amount, row.upi_amount);
+    }
+  }
+
+  for (const row of cafeRows ?? []) {
+    addSplit(resolveMonthRow(map, row.sale_date)[3], row.payment_method, Number(row.amount), row.cash_amount, row.upi_amount);
+  }
+
+  for (const row of dailyPassRows ?? []) {
+    addSplit(resolveMonthRow(map, row.date)[1], "upi", Number(row.amount), null, null);
+  }
+
+  const lockerRows = await supabase
+    .from("locker_allocations")
+    .select("assigned_at, price, payment_method, cash_amount, upi_amount")
+    .order("assigned_at", { ascending: false });
+
+  for (const row of lockerRows.data ?? []) {
+    addSplit(
+      resolveMonthRow(map, row.assigned_at)[2],
+      row.payment_method,
+      resolveLockerAmount(row),
+      row.cash_amount,
+      row.upi_amount
+    );
+  }
+
+  return {
+    data: Array.from(map.keys())
+      .sort()
+      .flatMap((key) => map.get(key)!)
+      .filter(Boolean),
+  };
+}
+
 export async function getLockerAllocationFinanceRows() {
   if (!isSupabaseConfigured()) return { data: [] as LockerAllocationFinanceRow[] };
 
@@ -459,6 +606,7 @@ type MembershipJoinRow = {
   amount_paid: number;
   batch: import("./batches").BatchOption | null;
   remarks: string | null;
+  unassigned_location: "reading_commons" | "nook" | null;
   members: { id: string; full_name: string; phone: string; email: string | null } | null;
   seats: { seat_code: string; zone: "library" | "lounge" } | null;
 };
@@ -468,7 +616,7 @@ export async function getMemberships(): Promise<{ data: MembershipRow[] }> {
   const { data, error } = await supabase
     .from("memberships")
     .select(
-      "id, start_date, end_date, status, paused_at, amount_paid, batch, remarks, members(id, full_name, phone, email), seats(seat_code, zone)"
+      "id, start_date, end_date, status, paused_at, amount_paid, batch, remarks, unassigned_location, members(id, full_name, phone, email), seats(seat_code, zone)"
     )
     .order("created_at", { ascending: false });
 
@@ -503,6 +651,7 @@ export async function getMemberships(): Promise<{ data: MembershipRow[] }> {
         paused_at: row.paused_at ?? null,
         batch: row.batch,
         remarks: row.remarks,
+        unassigned_location: row.unassigned_location === "nook" ? "nook" : "reading_commons",
       };
     });
 
@@ -551,6 +700,7 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
           status: "expired",
           paused_at: null,
           remarks: null,
+          unassigned_location: "reading_commons",
           payments: [{ id: "demo-p1", amount: 2200, payment_date: "2026-04-15", method: "cash", cash_amount: null, upi_amount: null }],
           events: [],
         },
@@ -565,6 +715,7 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
           status: "expired",
           paused_at: null,
           remarks: "Paid in advance",
+          unassigned_location: "reading_commons",
           payments: [{ id: "demo-p2", amount: 4200, payment_date: "2026-05-15", method: "upi", cash_amount: null, upi_amount: null }],
           events: [],
         },
@@ -579,6 +730,7 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
           status: "active",
           paused_at: null,
           remarks: null,
+          unassigned_location: "reading_commons",
           payments: [{ id: "demo-p3", amount: 2300, payment_date: "2026-07-15", method: "cash", cash_amount: null, upi_amount: null }],
           events: [],
         },
@@ -596,7 +748,7 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
       .single(),
     supabase
       .from("memberships")
-      .select("id, start_date, end_date, status, paused_at, amount_paid, batch, remarks, seats(seat_code), payments(id, amount, payment_date, method, cash_amount, upi_amount), membership_events(id, event_type, event_date, note)")
+      .select("id, start_date, end_date, status, paused_at, amount_paid, batch, remarks, unassigned_location, seats(seat_code), payments(id, amount, payment_date, method, cash_amount, upi_amount), membership_events(id, event_type, event_date, note)")
       .eq("member_id", memberId)
       .order("start_date", { ascending: true }),
   ]);
@@ -613,6 +765,7 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
     batch: import("./batches").BatchOption | null;
     seats: { seat_code: string } | { seat_code: string }[] | null;
     remarks: string | null;
+    unassigned_location: "reading_commons" | "nook" | null;
     payments: { id: string; amount: number; payment_date: string; method: string; cash_amount: number | null; upi_amount: number | null }[];
     membership_events: { id: string; event_type: "paused" | "resumed"; event_date: string; note: string | null }[];
   }) => {
@@ -632,6 +785,7 @@ export async function getMemberDetail(memberId: string): Promise<import("./types
       status: m.status,
       paused_at: m.paused_at ?? null,
       remarks: m.remarks,
+      unassigned_location: m.unassigned_location ?? "reading_commons",
       payments: (m.payments ?? []).map((p) => ({
         id: p.id,
         amount: Number(p.amount),

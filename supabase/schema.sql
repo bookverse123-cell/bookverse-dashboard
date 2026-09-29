@@ -60,6 +60,7 @@ create table if not exists memberships (
   id uuid primary key default uuid_generate_v4(),
   member_id uuid not null references members(id) on delete cascade,
   seat_id uuid references seats(id) on delete restrict,
+  unassigned_location text not null default 'reading_commons' check (unassigned_location in ('reading_commons', 'nook')),
   plan_id uuid not null references membership_plans(id),
   start_date date not null,
   end_date date not null,
@@ -72,6 +73,24 @@ create table if not exists memberships (
 
 alter table memberships
   add column if not exists batch text;
+
+alter table memberships
+  add column if not exists unassigned_location text not null default 'reading_commons';
+
+update memberships
+set unassigned_location = 'reading_commons'
+where seat_id is null and (unassigned_location is null or unassigned_location not in ('reading_commons', 'nook'));
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'memberships_unassigned_location_allowed'
+  ) then
+    alter table memberships
+      add constraint memberships_unassigned_location_allowed
+      check (unassigned_location in ('reading_commons', 'nook'));
+  end if;
+end $$;
 
 create index if not exists idx_memberships_seat on memberships(seat_id);
 create index if not exists idx_memberships_member on memberships(member_id);
@@ -113,11 +132,43 @@ create table if not exists cafeteria_expenses (
   category text not null,                 -- e.g. "Groceries", "Snacks", "Utilities"
   description text,
   amount numeric(10, 2) not null,
+  payment_method text not null default 'upi' check (payment_method in ('cash', 'upi', 'cash_upi')),
+  cash_amount numeric(10, 2),
+  upi_amount numeric(10, 2),
+  check (
+    (payment_method = 'cash_upi' and cash_amount is not null and upi_amount is not null and cash_amount > 0 and upi_amount > 0 and (cash_amount + upi_amount = amount))
+    or
+    (payment_method <> 'cash_upi' and cash_amount is null and upi_amount is null)
+  ),
   expense_date date not null default current_date,
   created_at timestamptz not null default now()
 );
 
 create index if not exists idx_cafeteria_expenses_date on cafeteria_expenses(expense_date);
+
+alter table cafeteria_expenses
+  add column if not exists payment_method text not null default 'upi';
+
+alter table cafeteria_expenses
+  add column if not exists cash_amount numeric(10, 2);
+
+alter table cafeteria_expenses
+  add column if not exists upi_amount numeric(10, 2);
+
+update cafeteria_expenses
+set payment_method = 'upi'
+where payment_method is null;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'cafeteria_expenses_payment_method_allowed'
+  ) then
+    alter table cafeteria_expenses
+      add constraint cafeteria_expenses_payment_method_allowed
+      check (payment_method in ('cash', 'upi', 'cash_upi'));
+  end if;
+end $$;
 
 -- ----------------------------------------------------------------------------
 -- CAFETERIA REVENUE (optional — track café sales separately from memberships)
@@ -126,11 +177,43 @@ create table if not exists cafeteria_sales (
   id uuid primary key default uuid_generate_v4(),
   description text,
   amount numeric(10, 2) not null,
+  payment_method text not null default 'upi' check (payment_method in ('cash', 'upi', 'cash_upi')),
+  cash_amount numeric(10, 2),
+  upi_amount numeric(10, 2),
+  check (
+    (payment_method = 'cash_upi' and cash_amount is not null and upi_amount is not null and cash_amount > 0 and upi_amount > 0 and (cash_amount + upi_amount = amount))
+    or
+    (payment_method <> 'cash_upi' and cash_amount is null and upi_amount is null)
+  ),
   sale_date date not null default current_date,
   created_at timestamptz not null default now()
 );
 
 create index if not exists idx_cafeteria_sales_date on cafeteria_sales(sale_date);
+
+alter table cafeteria_sales
+  add column if not exists payment_method text not null default 'upi';
+
+alter table cafeteria_sales
+  add column if not exists cash_amount numeric(10, 2);
+
+alter table cafeteria_sales
+  add column if not exists upi_amount numeric(10, 2);
+
+update cafeteria_sales
+set payment_method = 'upi'
+where payment_method is null;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'cafeteria_sales_payment_method_allowed'
+  ) then
+    alter table cafeteria_sales
+      add constraint cafeteria_sales_payment_method_allowed
+      check (payment_method in ('cash', 'upi', 'cash_upi'));
+  end if;
+end $$;
 
 -- ----------------------------------------------------------------------------
 -- INVESTMENTS / CAPITAL EXPENDITURE

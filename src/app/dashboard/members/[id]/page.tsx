@@ -10,6 +10,11 @@ import { MemberConversionAction } from "@/components/members/MemberConversionAct
 import { MemberPauseAction } from "@/components/members/MemberPauseAction";
 import { getSeatStatuses } from "@/lib/data";
 
+function unassignedLocationLabel(location: "reading_commons" | "nook" | null | undefined) {
+  if (location === "nook") return "Nook";
+  return "Reading Commons";
+}
+
 export default async function MemberDetailPage({
   params,
 }: {
@@ -52,7 +57,9 @@ export default async function MemberDetailPage({
     ? "bg-terracotta/15 text-terracotta"
     : "bg-ink-text/10 text-ink-text/50";
   const availableSeats = seats.seats.filter((seat) => seat.occupancy_status === "available");
-  const currentSeatLabel = latestMembership?.seat_code ?? "Unassigned";
+  const currentSeatLabel = latestMembership?.seat_code
+    ? `Seat No. ${latestMembership.seat_code}`
+    : `No seat assigned · ${unassignedLocationLabel(latestMembership?.unassigned_location)}`;
 
   return (
     <>
@@ -95,7 +102,7 @@ export default async function MemberDetailPage({
           </div>
           <div className="mt-4 flex flex-wrap gap-3">
             <span className="rounded-full border border-ink-line/10 bg-white px-3 py-1.5 text-xs font-mono uppercase tracking-wider text-ink-text/50">
-              Seat No. {currentSeatLabel}
+              {currentSeatLabel}
             </span>
             <span className={`rounded-full px-3 py-1.5 text-xs font-medium ${currentStatusClass}`}>
               {currentStatusLabel}
@@ -168,7 +175,7 @@ export default async function MemberDetailPage({
             </div>
             <div className="mt-2">
               <span className="rounded-full bg-ink-text/10 px-2.5 py-1 text-xs font-medium text-ink-text/70">
-                Seat No. {currentSeatLabel}
+                {currentSeatLabel}
               </span>
             </div>
           </div>

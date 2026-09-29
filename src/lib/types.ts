@@ -40,6 +40,7 @@ export type MembershipRow = {
   paused_at: string | null;
   batch: BatchOption | null;
   remarks: string | null;
+  unassigned_location: "reading_commons" | "nook" | null;
 };
 
 export type PaymentEntry = {
@@ -69,6 +70,7 @@ export type MemberHistoryEntry = {
   status: "active" | "expired" | "cancelled" | "paused";
   paused_at: string | null;
   remarks: string | null;
+  unassigned_location: "reading_commons" | "nook" | null;
   payments: PaymentEntry[];
   events: MembershipEventEntry[];
 };
@@ -106,6 +108,15 @@ export type MembershipMonthRow = {
   assignedRevenue: number;
   unassignedRevenue: number;
   dailyPassRevenue: number;
+};
+
+export type FinanceBreakoutRow = {
+  monthKey: string;
+  month: string;
+  category: "Reading Commons" | "Nook" | "Locker" | "Cafe";
+  cash: number;
+  upi: number;
+  total: number;
 };
 
 export type MembershipPaymentRow = {
