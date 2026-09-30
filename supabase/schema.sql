@@ -264,8 +264,15 @@ create table if not exists daily_passes (
   phone text not null,
   date date not null default current_date,
   amount numeric(10, 2) not null default 200,
+  payment_method text not null default 'upi' check (payment_method in ('cash', 'upi', 'cash_upi')),
+  cash_amount numeric(10, 2),
+  upi_amount numeric(10, 2),
   created_at timestamptz not null default now()
 );
+
+update daily_passes
+set payment_method = 'upi'
+where payment_method is null;
 
 create index if not exists idx_daily_passes_date on daily_passes(date);
 

@@ -100,6 +100,9 @@ export type DailyPassRow = {
   phone: string;
   date: string;
   amount: number;
+  payment_method?: "cash" | "upi" | "cash_upi" | null;
+  cash_amount?: number | null;
+  upi_amount?: number | null;
 };
 
 export type MembershipMonthRow = {

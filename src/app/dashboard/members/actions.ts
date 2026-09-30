@@ -12,12 +12,16 @@ export type DailyPassInput = {
   phone: string;
   date: string;
   amount: number;
+  paymentMethod?: "cash" | "upi" | "cash_upi";
+  cashAmount?: number;
+  upiAmount?: number;
 };
 
 type PaymentMethod = "cash" | "upi" | "card" | "bank_transfer" | "other" | "upi_cash";
 type ConversionMode = "current_cycle" | "next_month";
 
 const PAYMENT_METHODS = new Set(["cash", "upi", "card", "bank_transfer", "other", "upi_cash"]);
+const DAILY_PASS_PAYMENT_METHODS = new Set(["cash", "upi", "cash_upi"]);
 
 function addDaysToIsoDate(startDate: string, days: number) {
   const [year, month, day] = startDate.split("-").map(Number);
@@ -72,6 +76,56 @@ function normalizePaymentDetails(input: {
     payment: {
       amount: expected,
       method: input.paymentMethod,
+      cash_amount: cashAmount,
+      upi_amount: upiAmount,
+    },
+  };
+}
+
+function normalizeDailyPassPayment(input: {
+  amount: number;
+  paymentMethod?: "cash" | "upi" | "cash_upi";
+  cashAmount?: number;
+  upiAmount?: number;
+}) {
+  const paymentMethod = input.paymentMethod ?? "upi";
+  if (!DAILY_PASS_PAYMENT_METHODS.has(paymentMethod)) {
+    return { error: "Invalid payment method" };
+  }
+
+  if (!Number.isFinite(input.amount) || input.amount <= 0) {
+    return { error: "Daily pass amount must be greater than zero" };
+  }
+
+  if (paymentMethod !== "cash_upi") {
+    return {
+      payment: {
+        payment_method: paymentMethod,
+        cash_amount: null as number | null,
+        upi_amount: null as number | null,
+      },
+    };
+  }
+
+  const cashAmount = Number(input.cashAmount ?? 0);
+  const upiAmount = Number(input.upiAmount ?? 0);
+
+  if (!Number.isFinite(cashAmount) || !Number.isFinite(upiAmount)) {
+    return { error: "Enter valid split amounts for UPI and cash" };
+  }
+  if (cashAmount <= 0 || upiAmount <= 0) {
+    return { error: "UPI + Cash requires both cash and UPI amounts" };
+  }
+
+  const total = Number((cashAmount + upiAmount).toFixed(2));
+  const expected = Number(input.amount.toFixed(2));
+  if (total !== expected) {
+    return { error: "Cash + UPI must exactly match amount paid" };
+  }
+
+  return {
+    payment: {
+      payment_method: paymentMethod,
       cash_amount: cashAmount,
       upi_amount: upiAmount,
     },
@@ -194,6 +248,16 @@ export async function addDailyPass(input: DailyPassInput) {
   if (!isSupabaseConfigured()) return { error: DEMO_ERROR };
 
   const amount = Number(input.amount);
+  const paymentDetails = normalizeDailyPassPayment({
+    amount,
+    paymentMethod: input.paymentMethod,
+    cashAmount: input.cashAmount,
+    upiAmount: input.upiAmount,
+  });
+  if (paymentDetails.error) return { error: paymentDetails.error };
+  const payment = paymentDetails.payment;
+  if (!payment) return { error: "Failed to normalize payment details" };
+
   if (!Number.isFinite(amount) || amount <= 0) {
     return { error: "Daily pass amount must be greater than zero" };
   }
@@ -204,6 +268,9 @@ export async function addDailyPass(input: DailyPassInput) {
     phone: input.phone,
     date: input.date,
     amount,
+    payment_method: payment.payment_method,
+    cash_amount: payment.cash_amount,
+    upi_amount: payment.upi_amount,
   });
 
   if (error) return { error: error.message };

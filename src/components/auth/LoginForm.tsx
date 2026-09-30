@@ -10,11 +10,25 @@ export function LoginForm() {
   const router = useRouter();
   const supabase = createClient();
 
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function toLoginEmail(value: string) {
+    const trimmed = value.trim().toLowerCase();
+
+    if (!trimmed) {
+      return "";
+    }
+
+    if (trimmed.includes("@")) {
+      return trimmed;
+    }
+
+    return `${trimmed}@bookverse.in`;
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -22,7 +36,7 @@ export function LoginForm() {
     setError(null);
 
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: toLoginEmail(identifier),
       password,
     });
 
@@ -59,14 +73,15 @@ export function LoginForm() {
       <div className="space-y-4">
         <div>
           <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-2">
-            Email
+            Username or email
           </label>
           <input
-            type="email"
+            type="text"
             required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="admin@bookverse.in"
+            autoComplete="username"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            placeholder="bookverse"
             className="w-full rounded-lg border border-parchment-line bg-white/60 px-4 py-3 text-ink-text placeholder:text-ink-text/30 outline-none transition focus:border-brass focus:ring-2 focus:ring-brass/30"
           />
         </div>
@@ -118,7 +133,7 @@ export function LoginForm() {
       </motion.button>
 
       <p className="mt-6 text-center text-xs text-ink-text/40">
-        Single admin account — set up via Supabase Auth.
+        Single admin account — log in with `bookverse` and your Supabase password.
       </p>
     </motion.form>
   );

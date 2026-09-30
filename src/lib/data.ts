@@ -243,7 +243,7 @@ export async function getDailyPasses(): Promise<{ data: DailyPassRow[] }> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("daily_passes")
-    .select("id, full_name, phone, date, amount")
+    .select("id, full_name, phone, date, amount, payment_method, cash_amount, upi_amount")
     .order("date", { ascending: false })
     .limit(200);
 
@@ -256,6 +256,12 @@ export async function getDailyPasses(): Promise<{ data: DailyPassRow[] }> {
       phone: r.phone,
       date: r.date,
       amount: Number(r.amount),
+      payment_method:
+        r.payment_method === "cash" || r.payment_method === "upi" || r.payment_method === "cash_upi"
+          ? r.payment_method
+          : "upi",
+      cash_amount: r.cash_amount !== null ? Number(r.cash_amount) : null,
+      upi_amount: r.upi_amount !== null ? Number(r.upi_amount) : null,
     })),
   };
 }
@@ -462,7 +468,7 @@ export async function getFinanceBreakoutMonthly(): Promise<{ data: FinanceBreako
       .from("payments")
       .select("payment_date, amount, method, cash_amount, upi_amount, memberships(seat_id, unassigned_location, seats(zone))"),
     supabase.from("cafeteria_sales").select("sale_date, amount, payment_method, cash_amount, upi_amount"),
-    supabase.from("daily_passes").select("date, amount"),
+    supabase.from("daily_passes").select("date, amount, payment_method, cash_amount, upi_amount"),
   ]);
 
   if (membershipError || cafeError || dailyPassError) return { data: [] };
@@ -537,7 +543,13 @@ export async function getFinanceBreakoutMonthly(): Promise<{ data: FinanceBreako
   }
 
   for (const row of dailyPassRows ?? []) {
-    addSplit(resolveMonthRow(map, row.date)[1], "upi", Number(row.amount), null, null);
+    addSplit(
+      resolveMonthRow(map, row.date)[1],
+      row.payment_method,
+      Number(row.amount),
+      row.cash_amount,
+      row.upi_amount
+    );
   }
 
   const lockerRows = await supabase

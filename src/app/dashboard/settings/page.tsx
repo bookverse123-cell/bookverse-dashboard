@@ -47,7 +47,7 @@ export default async function SettingsPage() {
               <div>
                 <p className="text-sm font-medium text-ink-text">Admin access</p>
                 <p className="text-xs text-ink-text/50">
-                  Single admin account via Supabase Auth (email + password)
+                  Single admin account via Supabase Auth (username or email + password)
                 </p>
               </div>
             </div>

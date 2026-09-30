@@ -14,26 +14,50 @@ export function AddDailyPassModal({
   onClose: () => void;
   onAdded: () => void;
 }) {
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "upi" | "cash_upi">("upi");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("+91");
   const [date, setDate] = useState(todayStr());
   const [amount, setAmount] = useState<number | "">("");
+  const [cashAmount, setCashAmount] = useState<number | "">("");
+  const [upiAmount, setUpiAmount] = useState<number | "">("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const total = amount === "" ? 0 : Number(amount);
+
+    if (paymentMethod === "cash_upi") {
+      const cash = cashAmount === "" ? 0 : Number(cashAmount);
+      const upi = upiAmount === "" ? 0 : Number(upiAmount);
+      if (cash <= 0 || upi <= 0) {
+        setError("Enter both cash and UPI amounts");
+        return;
+      }
+      if (Number((cash + upi).toFixed(2)) !== Number(total.toFixed(2))) {
+        setError("Cash + UPI must match amount charged");
+        return;
+      }
+    }
+
     setLoading(true);
     setError(null);
 
-    const res = await addDailyPass({
-      full_name: fullName,
-      phone,
-      date,
-      amount: amount === "" ? 0 : Number(amount),
-    });
-
-    setLoading(false);
+    let res;
+    try {
+      res = await addDailyPass({
+        full_name: fullName,
+        phone,
+        date,
+        amount: total,
+        paymentMethod,
+        cashAmount: paymentMethod === "cash_upi" ? Number(cashAmount) : undefined,
+        upiAmount: paymentMethod === "cash_upi" ? Number(upiAmount) : undefined,
+      });
+    } finally {
+      setLoading(false);
+    }
 
     if (res?.error) {
       setError(res.error);
@@ -129,6 +153,67 @@ export function AddDailyPassModal({
               className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
             />
           </div>
+
+          <div className="space-y-2 rounded-lg border border-parchment-line/80 bg-white/50 p-3">
+            <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50">
+              Payment method
+            </label>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {[
+                { value: "upi", label: "UPI" },
+                { value: "cash", label: "Cash" },
+                { value: "cash_upi", label: "Cash + UPI" },
+              ].map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setPaymentMethod(option.value as typeof paymentMethod)}
+                  className={`rounded-lg border px-3 py-2 text-sm transition ${
+                    paymentMethod === option.value
+                      ? "border-brass bg-brass/10 text-brass-soft"
+                      : "border-parchment-line/80 bg-white/70 text-ink-text hover:border-brass/50"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {paymentMethod === "cash_upi" && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
+                  Cash amount (₹)
+                </label>
+                <input
+                  required
+                  type="number"
+                  min={1}
+                  step="0.01"
+                  value={cashAmount}
+                  onChange={(e) => setCashAmount(e.target.value === "" ? "" : Number(e.target.value))}
+                  placeholder="e.g. 100"
+                  className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
+                  UPI amount (₹)
+                </label>
+                <input
+                  required
+                  type="number"
+                  min={1}
+                  step="0.01"
+                  value={upiAmount}
+                  onChange={(e) => setUpiAmount(e.target.value === "" ? "" : Number(e.target.value))}
+                  placeholder="e.g. 100"
+                  className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
+                />
+              </div>
+            </div>
+          )}
 
           {error && (
             <p className="rounded-lg border border-terracotta/20 bg-terracotta/10 px-3 py-2 text-sm text-terracotta">

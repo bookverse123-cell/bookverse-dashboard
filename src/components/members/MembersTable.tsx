@@ -236,6 +236,12 @@ export function MembersTable({
               {filtered.map((row, i) => {
                 if (row.kind === "daily_pass") {
                   const dp = row.data;
+                  const paymentLabel =
+                    dp.payment_method === "cash_upi"
+                      ? `Cash + UPI`
+                      : dp.payment_method === "cash"
+                      ? "Cash"
+                      : "UPI";
                   return (
                     <motion.tr
                       key={`dp-${dp.id}`}
@@ -256,7 +262,9 @@ export function MembersTable({
                           —
                         </span>
                       </td>
-                      <td className="py-3 text-ink-text/70">Daily Pass — ₹200</td>
+                      <td className="py-3 text-ink-text/70">
+                        Daily Pass — {paymentLabel} — ₹{dp.amount.toLocaleString("en-IN")}
+                      </td>
                       <td className="py-3 text-ink-text/70">
                         {new Date(dp.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
                       </td>

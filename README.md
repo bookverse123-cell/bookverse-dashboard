@@ -42,8 +42,9 @@ finances). No Supabase needed for this step.
    cp .env.local.example .env.local
    ```
 
-6. Create your admin login: **Authentication → Users → Add user** (email +
-   password). This is the only account — there's no public sign-up.
+6. Create your admin login: **Authentication → Users → Add user** with the
+   email `bookverse@bookverse.in` and password `Submit@9904`. The login form
+   also accepts `bookverse` as the username shortcut.
 7. Restart `npm run dev`. The app now reads/writes your real data, and
    `/login` requires that admin account.
 
