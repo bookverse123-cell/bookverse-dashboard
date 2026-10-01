@@ -229,6 +229,10 @@ export function AddUnassignedMemberModal({
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
+              <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">Start date</label>
+              <DatePopover value={startDate} onChange={setStartDate} />
+            </div>
+            <div>
               <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">
                 {tenureMode === "duration" ? "Duration" : "End date"}
               </label>
@@ -257,10 +261,6 @@ export function AddUnassignedMemberModal({
                   <option key={option} value={option}>{option}</option>
                 ))}
               </select>
-            </div>
-            <div>
-              <label className="block text-xs font-mono uppercase tracking-wider text-ink-text/50 mb-1.5">Start date</label>
-              <DatePopover value={startDate} onChange={setStartDate} />
             </div>
           </div>
 

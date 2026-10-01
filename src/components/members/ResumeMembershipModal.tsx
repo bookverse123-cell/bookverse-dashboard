@@ -18,18 +18,16 @@ export function ResumeMembershipModal({
   onClose: () => void;
 }) {
   const router = useRouter();
-  const [selectedSeatId, setSelectedSeatId] = useState<string>("");
+  const [selectedSeatId, setSelectedSeatId] = useState<string>("__unassigned__");
+  const [resumeDate, setResumeDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleResume() {
-    if (!selectedSeatId) {
-      setError("Select a seat to resume");
-      return;
-    }
     setLoading(true);
     setError(null);
-    const result = await resumeMembership({ membershipId, memberId, seatId: selectedSeatId });
+    const seatId = selectedSeatId === "__unassigned__" ? null : selectedSeatId;
+    const result = await resumeMembership({ membershipId, memberId, seatId, resumeDate });
     setLoading(false);
     if (result.error) {
       setError(result.error);
@@ -51,37 +49,55 @@ export function ResumeMembershipModal({
 
         <div className="space-y-4 p-5">
           <p className="text-xs text-ink-text/60">
-            Select a seat to resume the membership. The end date will be extended by the number of days the membership was paused.
+            Select a seat and the date from which membership resumes. The end date will be extended by the number of days paused.
           </p>
+
+          <div>
+            <label className="mb-1.5 block font-mono text-xs uppercase tracking-wider text-ink-text/50">
+              Resume from date
+            </label>
+            <input
+              type="date"
+              value={resumeDate}
+              onChange={(e) => setResumeDate(e.target.value)}
+              className="w-full rounded-lg border border-parchment-line bg-white/70 px-3 py-2.5 text-sm text-ink-text outline-none focus:border-brass focus:ring-2 focus:ring-brass/30"
+            />
+          </div>
 
           <div>
             <label className="mb-1.5 block font-mono text-xs uppercase tracking-wider text-ink-text/50">
               Assign Seat
             </label>
-            {availableSeats.length === 0 ? (
-              <p className="rounded-lg border border-parchment-line bg-parchment/50 px-3 py-2.5 text-xs text-ink-text/50">
-                No seats available right now.
-              </p>
-            ) : (
-              <div className="max-h-48 overflow-y-auto rounded-lg border border-parchment-line">
-                {availableSeats.map((seat) => (
-                  <button
-                    key={seat.seat_id}
-                    type="button"
-                    onClick={() => setSelectedSeatId(seat.seat_id)}
-                    className={`flex w-full items-center gap-2 border-b border-parchment-line/60 px-3 py-2 text-left text-xs last:border-0 transition ${
-                      selectedSeatId === seat.seat_id
-                        ? "bg-brass/10 text-brass-soft"
-                        : "text-ink-text/70 hover:bg-ink-text/5"
-                    }`}
-                  >
-                    <MapPin size={12} className="shrink-0" />
-                    <span className="font-mono">{seat.seat_code}</span>
-                    <span className="text-ink-text/40">· {seat.zone}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+            <div className="max-h-48 overflow-y-auto rounded-lg border border-parchment-line">
+              <button
+                type="button"
+                onClick={() => setSelectedSeatId("__unassigned__")}
+                className={`flex w-full items-center gap-2 border-b border-parchment-line/60 px-3 py-2 text-left text-xs transition ${
+                  selectedSeatId === "__unassigned__"
+                    ? "bg-brass/10 text-brass-soft"
+                    : "text-ink-text/70 hover:bg-ink-text/5"
+                }`}
+              >
+                <span className="font-mono">Unassigned</span>
+                <span className="text-ink-text/40">· no seat</span>
+              </button>
+              {availableSeats.map((seat) => (
+                <button
+                  key={seat.seat_id}
+                  type="button"
+                  onClick={() => setSelectedSeatId(seat.seat_id)}
+                  className={`flex w-full items-center gap-2 border-b border-parchment-line/60 px-3 py-2 text-left text-xs last:border-0 transition ${
+                    selectedSeatId === seat.seat_id
+                      ? "bg-brass/10 text-brass-soft"
+                      : "text-ink-text/70 hover:bg-ink-text/5"
+                  }`}
+                >
+                  <MapPin size={12} className="shrink-0" />
+                  <span className="font-mono">{seat.seat_code}</span>
+                  <span className="text-ink-text/40">· {seat.zone}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           {error && (
@@ -98,7 +114,7 @@ export function ResumeMembershipModal({
           </button>
           <button
             onClick={handleResume}
-            disabled={loading || !selectedSeatId || availableSeats.length === 0}
+            disabled={loading}
             className="rounded-lg bg-sage px-4 py-2 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-50"
           >
             {loading ? "Resuming…" : "Resume Membership"}

@@ -624,7 +624,8 @@ export async function pauseMembership(input: {
 export async function resumeMembership(input: {
   membershipId: string;
   memberId: string;
-  seatId: string;
+  seatId: string | null;
+  resumeDate?: string;
 }) {
   if (!isSupabaseConfigured()) return { error: DEMO_ERROR };
 
@@ -641,20 +642,23 @@ export async function resumeMembership(input: {
   if (current.status !== "paused") return { error: "Membership is not paused" };
   if (!current.paused_at) return { error: "Paused date missing" };
 
-  const { data: seat, error: seatError } = await supabase
-    .from("seat_status")
-    .select("seat_id, is_active, occupancy_status")
-    .eq("seat_id", input.seatId)
-    .maybeSingle();
+  if (input.seatId) {
+    const { data: seat, error: seatError } = await supabase
+      .from("seat_status")
+      .select("seat_id, is_active, occupancy_status")
+      .eq("seat_id", input.seatId)
+      .maybeSingle();
 
-  if (seatError || !seat) return { error: "Seat not found" };
-  if (!seat.is_active) return { error: "Seat is not active" };
-  if (seat.occupancy_status !== "available") return { error: "Selected seat is already occupied" };
+    if (seatError || !seat) return { error: "Seat not found" };
+    if (!seat.is_active) return { error: "Seat is not active" };
+    if (seat.occupancy_status !== "available") return { error: "Selected seat is already occupied" };
+  }
 
   const today = new Date().toISOString().slice(0, 10);
+  const resumeDate = input.resumeDate ?? today;
   const pausedDate = new Date(current.paused_at);
-  const todayDate = new Date(today);
-  const daysPaused = Math.max(0, Math.round((todayDate.getTime() - pausedDate.getTime()) / 86400000));
+  const resumeDateObj = new Date(resumeDate);
+  const daysPaused = Math.max(0, Math.round((resumeDateObj.getTime() - pausedDate.getTime()) / 86400000));
 
   const newEndDate = addDaysToIsoDate(current.end_date, daysPaused);
   const newTotalPausedDays = (current.total_paused_days ?? 0) + daysPaused;
@@ -666,7 +670,7 @@ export async function resumeMembership(input: {
       paused_at: null,
       total_paused_days: newTotalPausedDays,
       end_date: newEndDate,
-      seat_id: input.seatId,
+      seat_id: input.seatId ?? null,
     })
     .eq("id", input.membershipId);
 
@@ -675,7 +679,7 @@ export async function resumeMembership(input: {
   await supabase.from("membership_events").insert({
     membership_id: input.membershipId,
     event_type: "resumed",
-    event_date: today,
+    event_date: resumeDate,
     note: `${daysPaused} day${daysPaused !== 1 ? "s" : ""} paused — end date extended to ${newEndDate}`,
   });
 

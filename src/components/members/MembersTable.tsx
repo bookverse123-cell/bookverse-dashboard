@@ -142,7 +142,7 @@ export function MembersTable({
       ...dailyPasses.map((r) => ({ kind: "daily_pass" as const, data: r })),
     ];
 
-    return allRows.filter((row) => {
+    const result = allRows.filter((row) => {
       const name = row.data.full_name;
       const phone = row.data.phone;
       const seatCode = row.kind === "membership" ? row.data.seat_code : "";
@@ -168,6 +168,16 @@ export function MembersTable({
       if (filter === "Expired") return (r.status !== "active" && r.status !== "paused") || r.days_until_expiry < 0;
       return true;
     });
+
+    if (filter === "Expired") {
+      result.sort((a, b) => {
+        const dA = a.kind === "membership" ? a.data.days_until_expiry : 0;
+        const dB = b.kind === "membership" ? b.data.days_until_expiry : 0;
+        return dB - dA;
+      });
+    }
+
+    return result;
   }, [rows, dailyPasses, query, filter]);
 
   return (
